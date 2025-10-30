@@ -1,0 +1,32 @@
+[
+  {
+    "code": "CONNECT",
+    "name": "Autodesk Connect",
+    "languages": ["ENU", "DEU", "FRA", "CHS", "ITA", "JPN"],
+    "usesYearBranch": false
+  },
+  {
+    "code": "MANAGE",
+    "name": "Autodesk Manage",
+    "languages": ["ENU", "DEU", "FRA", "CHS"],
+    "usesYearBranch": false
+  },
+  {
+    "code": "FUSION",
+    "name": "Autodesk Fusion",
+    "languages": ["ENU", "DEU", "FRA", "JPN"],
+    "usesYearBranch": false
+  },
+  {
+    "code": "NINCAD",
+    "name": "Autodesk NINCAD",
+    "languages": ["ENU", "CHS", "DEU", "FRA", "JPN"],
+    "usesYearBranch": true
+  },
+  {
+    "code": "PLM",
+    "name": "Fusion PLM",
+    "languages": ["ENU", "CHS", "DEU", "FRA", "ITA", "JPN"],
+    "usesYearBranch": true
+  }
+]
