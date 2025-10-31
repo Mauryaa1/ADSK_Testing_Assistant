@@ -2,7 +2,7 @@
   {
     "code": "CONNECT",
     "name": "Autodesk Connect",
-    "languages": ["ENU", "DEU", "FRA", "CHS", "ITA", "JPN"],
+    "languages": ["CHS", "CHT", "CSY", "DEU", "ESP", "FRA", "HUN", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
     "usesYearBranch": false
   },
   {
