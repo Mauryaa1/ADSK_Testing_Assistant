@@ -13,7 +13,7 @@
   button.secondary { background: #e5f0fa; color: #0078d4; border: 1px solid #0078d4; }
   ul { margin-top: 10px; }
   a { display: block; margin: 5px 0; color: #0b5394; text-decoration: none; word-break: break-all; }
-  #yearContainer { display: none; }
+  #yearContainer, #manualContainer { display: none; } /* hidden by default */
 </style>
 </head>
 <body>
@@ -32,8 +32,11 @@
     <select id="yearSelect"></select>
   </div>
 
-  <label>Or Enter Manual Staging Link / Product Name</label>
-  <input id="manualInput" placeholder="https://help-staging.autodesk.com/view/NINCAD/2026/ENU/?guid=... OR PLM">
+  <!-- This container will only show when “Other Product” is selected -->
+  <div id="manualContainer">
+    <label>Or Enter Manual Staging Link / Product Name</label>
+    <input id="manualInput" placeholder="https://help-staging.autodesk.com/view/NINCAD/2026/ENU/?guid=... OR PLM">
+  </div>
 
   <label>GUID</label>
   <input id="guidInput" placeholder="Enter GUID (e.g. Best_Practices_16)">
@@ -53,6 +56,7 @@ let productsData = [];
 const productSelect = document.getElementById('productSelect');
 const yearSelect = document.getElementById('yearSelect');
 const yearContainer = document.getElementById('yearContainer');
+const manualContainer = document.getElementById('manualContainer');
 const manualInput = document.getElementById('manualInput');
 const guidInput = document.getElementById('guidInput');
 const langsInput = document.getElementById('langsInput');
@@ -104,11 +108,18 @@ productSelect.addEventListener('change', () => {
   if (!selected) return;
 
   const usesYear = selected.dataset.usesYearBranch === 'true';
-  yearContainer.style.display = usesYear ? 'block' : 'none';
+  const isOther = selected.value === 'OTHER';
 
+  // Show or hide sections dynamically
+  yearContainer.style.display = usesYear ? 'block' : 'none';
+  manualContainer.style.display = isOther ? 'block' : 'none';
+
+  // Auto-fill language list for known products
   const product = productsData.find(p => p.code === productSelect.value);
   if (product && product.languages) {
     langsInput.value = product.languages.join(',');
+  } else if (isOther) {
+    langsInput.value = ''; // clear for manual entry
   }
 });
 
