@@ -6,7 +6,7 @@
     "usesYearBranch": false
   },
   {
-    "code": "MANAGE",
+    "code": "PLM",
     "name": "Autodesk Fusion Manage",
     "languages": ["CHS", "CSY", "DEU", "FRA", "ITA", "JPN", "KOR"],
     "usesYearBranch": false
