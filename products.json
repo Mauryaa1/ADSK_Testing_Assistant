@@ -23,4 +23,10 @@
     "languages": ["ENU", "CHS", "DEU", "FRA", "ITA", "JPN"],
     "usesYearBranch": true
   }
+   {
+    "code": "TANDEM",
+    "name": "Autodesk Tandem",
+    "languages": ["JPN", "KOR", "FRA", "DEU", "ESP"],
+    "usesYearBranch": false
+  },
 ]
