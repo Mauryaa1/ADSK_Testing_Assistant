@@ -22,7 +22,7 @@
     "name": "Fusion PLM",
     "languages": ["ENU", "CHS", "DEU", "FRA", "ITA", "JPN"],
     "usesYearBranch": true
-  }
+  },
    {
     "code": "TANDEM",
     "name": "Autodesk Tandem",
