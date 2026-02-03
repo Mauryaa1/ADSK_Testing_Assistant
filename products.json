@@ -18,6 +18,18 @@
     "usesYearBranch": true
   },
   {
+  "code": "INVNTOR",
+  "name": "Autodesk Inventor",
+  "languages": ["CHS", "CHT", "CSY", "DEU", "ESP", "FRA", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
+  "usesYearBranch": true
+  },
+  {
+  "code": "TNNUINV",
+  "name": "Autodesk Inventor Nesting",
+  "languages": ["CHS", "DEU", "ESP", "FRA", "ITA", "JPN"],
+  "usesYearBranch": false
+  },
+  {
     "code": "TANDEM",
     "name": "Autodesk Tandem",
     "languages": ["JPN", "KOR", "FRA", "DEU", "ESP"],
