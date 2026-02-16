@@ -30,6 +30,12 @@
   "usesYearBranch": false
   },
   {
+    "code": "ACMPAN",
+    "name": "Autodesk Helius CDX",
+    "languages": ["CHS", "JPN", "DEU"],
+    "usesYearBranch": true
+  },
+  {
     "code": "TANDEM",
     "name": "Autodesk Tandem",
     "languages": ["JPN", "KOR", "FRA", "DEU", "ESP"],
