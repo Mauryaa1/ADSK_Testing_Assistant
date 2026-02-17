@@ -36,6 +36,12 @@
     "usesYearBranch": true
   },
   {
+    "code": "SCM",
+    "name": "AUTODESK SCM",
+    "languages": ["CHS", "CHT", "JPN", "KOR", "DEU", "FRA", "ESP", "RUS", "PTG", "ITA"],
+    "usesYearBranch": false
+  },
+  {
     "code": "TANDEM",
     "name": "Autodesk Tandem",
     "languages": ["JPN", "KOR", "FRA", "DEU", "ESP"],
