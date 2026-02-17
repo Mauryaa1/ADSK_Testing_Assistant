@@ -39,7 +39,7 @@ a { display: block; margin: 5px 0; color: #0b5394; text-decoration: none; word-b
 <input id="manualInput">
 </div>
 
-<label>GUID</label>
+<label>GUID (optional for homepage)</label>
 <input id="guidInput">
 
 <label>Languages (comma separated)</label>
@@ -128,8 +128,6 @@ const manual = manualInput.value.trim();
 const guid = guidInput.value.trim();
 const langs = langsInput.value.trim();
 
-if (!guid) return alert('Please enter GUID');
-
 const langList = langs.split(',').map(l => l.trim().toUpperCase()).filter(Boolean);
 
 let baseUrl = '';
@@ -172,11 +170,20 @@ status.textContent = `Built ${urls.length} links successfully.`;
 
 function buildUrls(baseUrl, langs, guid, year) {
 baseUrl = baseUrl.replace(/\/+$/, '');
-return langs.map(lang =>
-year
+
+return langs.map(lang => {
+
+if (guid) {
+return year
 ? `${baseUrl}/${year}/${lang}/?guid=${encodeURIComponent(guid)}`
-: `${baseUrl}/${lang}/?guid=${encodeURIComponent(guid)}`
-);
+: `${baseUrl}/${lang}/?guid=${encodeURIComponent(guid)}`;
+}
+
+return year
+? `${baseUrl}/${year}/${lang}/`
+: `${baseUrl}/${lang}/`;
+
+});
 }
 
 function analyzeManual(input, domain) {
