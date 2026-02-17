@@ -213,9 +213,14 @@ document.getElementById('buildBeta')
 
 document.getElementById('openAllBtn')
 .onclick = () => {
-document.querySelectorAll('#linksList a').forEach((a,i) => {
-setTimeout(() => window.open(a.href,'_blank'), i*50);
-});
+const links = document.querySelectorAll('#linksList a');
+
+if (!links.length) {
+alert('No links built yet.');
+return;
+}
+
+links.forEach(a => a.click());
 };
 </script>
 
