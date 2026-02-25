@@ -44,7 +44,7 @@
   {
     "code": "DATAGR",
     "name": "AUTODESK DATUM-360",
-    "languages": ["ENG", "DEU", "FRA", "ITA", "ESP", "FRC", "JPN", "CHS", "DAN", "NLD", "SVE"],
+    "languages": ["ENG", "DEU", "FRA", "ESP", "FRC", "JPN", "CHS", "DAN", "NLD", "SWE"],
     "usesYearBranch": false
   },
   {
