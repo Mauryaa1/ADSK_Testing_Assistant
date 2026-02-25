@@ -42,6 +42,12 @@
     "usesYearBranch": false
   },
   {
+    "code": "DATAGR",
+    "name": "AUTODESK DATUM-360",
+    "languages": ["ENG", "DEU", "FRA", "ITA", "ESP", "FRC", "JPN", "CHS", "DAN", "NLD", "SVE"],
+    "usesYearBranch": false
+  },
+  {
     "code": "TANDEM",
     "name": "Autodesk Tandem",
     "languages": ["JPN", "KOR", "FRA", "DEU", "ESP"],
