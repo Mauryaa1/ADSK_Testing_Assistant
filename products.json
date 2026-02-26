@@ -48,6 +48,12 @@
     "usesYearBranch": false
   },
   {
+  "code": "COORD",
+  "name": "AUTODESK CONSTRUCTION CLOUD (ACC)",
+  "languages": ["DEU", "JPN", "FRA", "ESP", "NLD", "FRC", "ENG", "CHS", "CHT", "DAN", "SWE", "KOR", "ITA", "NOR"],
+  "usesYearBranch": false
+},
+  {
     "code": "TANDEM",
     "name": "Autodesk Tandem",
     "languages": ["JPN", "KOR", "FRA", "DEU", "ESP"],
