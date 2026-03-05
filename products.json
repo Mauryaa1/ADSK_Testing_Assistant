@@ -60,6 +60,24 @@
   "usesYearBranch": false
 },
   {
+    "code": "MFIA",
+    "name": "Moldflow Insight",
+    "languages": ["CHS", "CHT", "JPN", "KOR"],
+    "usesYearBranch": true
+  },
+  {
+    "code": "MFAA",
+    "name": "Moldflow Advisor",
+    "languages": ["CHS", "CHT", "DEU", "FRA", "ESP", "JPN", "KOR", "PTG"],
+    "usesYearBranch": true
+  }, 
+   {
+    "code": "MFC",
+    "name": "Moldflow Communicator",
+    "languages": ["CHS", "CHT", "JPN", "KOR"],
+    "usesYearBranch": true
+  },
+  {
     "code": "TANDEM",
     "name": "Autodesk Tandem",
     "languages": ["JPN", "KOR", "FRA", "DEU", "ESP"],
