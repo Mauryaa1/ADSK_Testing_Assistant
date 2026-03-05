@@ -14,7 +14,7 @@
   {
     "code": "NINCAD",
     "name": "Autodesk NINCAD",
-    "languages": ["ENU", "CHS", "DEU", "FRA", "JPN"],
+    "languages": ["CHS", "CHT", "DEU", "FRA", "ITA", "JPN", "KOR"],
     "usesYearBranch": true
   },
   {
