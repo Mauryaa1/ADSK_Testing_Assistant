@@ -53,6 +53,12 @@
   "languages": ["DEU", "JPN", "FRA", "ESP", "NLD", "FRC", "ENG", "CHS", "CHT", "DAN", "SWE", "KOR", "ITA", "NOR"],
   "usesYearBranch": false
 },
+   {
+  "code": "COLLAB",
+  "name": "AUTODESK DESIGN COLLABARATION",
+  "languages": ["DEU", "JPN", "FRA", "ESP", "NLD", "FRC", "ENG", "CHS", "CHT", "DAN", "SWE", "KOR", "ITA", "NOR"],
+  "usesYearBranch": false
+},
   {
     "code": "TANDEM",
     "name": "Autodesk Tandem",
