@@ -20,6 +20,7 @@ a { display: block; margin: 5px 0; color: #0b5394; text-decoration: none; word-b
 </head>
 
 <body>
+
 <div class="container">
 
 <h2>Autodesk — Multi-Language Link Opener</h2>
@@ -59,6 +60,7 @@ a { display: block; margin: 5px 0; color: #0b5394; text-decoration: none; word-b
 </div>
 
 <script>
+
 let productsData = [];
 
 const productSelect = document.getElementById('productSelect');
@@ -80,6 +82,17 @@ populateYears();
 });
 
 function populateProducts() {
+
+// Add OTHER option first
+const otherOpt = document.createElement('option');
+otherOpt.value = 'OTHER';
+otherOpt.textContent = 'Other Product (Manual Entry)';
+productSelect.appendChild(otherOpt);
+
+// Sort products alphabetically
+productsData.sort((a, b) => a.code.localeCompare(b.code));
+
+// Add sorted products
 productsData.forEach(p => {
 const opt = document.createElement('option');
 opt.value = p.code;
@@ -88,23 +101,26 @@ opt.dataset.usesYearBranch = p.usesYearBranch;
 productSelect.appendChild(opt);
 });
 
-const otherOpt = document.createElement('option');
-otherOpt.value = 'OTHER';
-otherOpt.textContent = 'Other Product (Manual Entry)';
-productSelect.appendChild(otherOpt);
 }
 
 function populateYears() {
+
 for (let y = 2055; y >= 1990; y--) {
+
 const opt = document.createElement('option');
 opt.value = y;
 opt.textContent = y;
+
 if (y === 2027) opt.selected = true;
+
 yearSelect.appendChild(opt);
+
 }
+
 }
 
 productSelect.addEventListener('change', () => {
+
 const selected = productSelect.selectedOptions[0];
 const usesYear = selected.dataset.usesYearBranch === 'true';
 const isOther = selected.value === 'OTHER';
@@ -113,9 +129,11 @@ yearContainer.style.display = usesYear ? 'block' : 'none';
 manualContainer.style.display = isOther ? 'block' : 'none';
 
 const product = productsData.find(p => p.code === productSelect.value);
+
 if (product && product.languages) {
 langsInput.value = product.languages.join(',');
 }
+
 });
 
 function buildLinks(domain) {
@@ -134,6 +152,7 @@ let baseUrl = '';
 let year = null;
 
 if (productCode && productCode !== 'OTHER') {
+
 const selected = productSelect.selectedOptions[0];
 const usesYear = selected.dataset.usesYearBranch === 'true';
 
@@ -144,39 +163,50 @@ if (usesYear) year = yearSelect.value || '2027';
 } else if (manual) {
 
 const info = analyzeManual(manual, domain);
+
 if (!info) return alert('Invalid manual input');
 
 baseUrl = info.baseUrl;
 year = info.year;
 
 } else {
+
 return alert('Select product or enter manual link');
+
 }
 
 const urls = buildUrls(baseUrl, langList, guid, year);
 
 urls.forEach(url => {
+
 const li = document.createElement('li');
 const a = document.createElement('a');
+
 a.href = url;
 a.target = '_blank';
 a.textContent = url;
+
 li.appendChild(a);
 linksList.appendChild(li);
+
 });
 
 status.textContent = `Built ${urls.length} links successfully.`;
+
 }
 
 function buildUrls(baseUrl, langs, guid, year) {
+
 baseUrl = baseUrl.replace(/\/+$/, '');
 
 return langs.map(lang => {
 
 if (guid) {
+
 return year
 ? `${baseUrl}/${year}/${lang}/?guid=${encodeURIComponent(guid)}`
 : `${baseUrl}/${lang}/?guid=${encodeURIComponent(guid)}`;
+
 }
 
 return year
@@ -184,29 +214,41 @@ return year
 : `${baseUrl}/${lang}/`;
 
 });
+
 }
 
 function analyzeManual(input, domain) {
+
 try {
+
 const u = new URL(input);
 const parts = u.pathname.split('/').filter(Boolean);
+
 const viewIdx = parts.indexOf('view');
+
 if (viewIdx === -1) return null;
 
 const afterView = parts.slice(viewIdx + 1);
+
 const product = afterView[0];
 const year = /^\d{4}$/.test(afterView[1]) ? afterView[1] : null;
 
 return { baseUrl: `${domain}/view/${product}`, year };
 
-} catch {
+}
+
+catch {
 
 if (/^[A-Z0-9]+$/i.test(input)) {
+
 return { baseUrl: `${domain}/view/${input}`, year: null };
+
 }
 
 return null;
+
 }
+
 }
 
 document.getElementById('buildStaging')
@@ -220,15 +262,20 @@ document.getElementById('buildBeta')
 
 document.getElementById('openAllBtn')
 .onclick = () => {
+
 const links = document.querySelectorAll('#linksList a');
 
 if (!links.length) {
+
 alert('No links built yet.');
 return;
+
 }
 
 links.forEach(a => a.click());
+
 };
+
 </script>
 
 </body>
