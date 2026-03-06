@@ -55,13 +55,13 @@
 },
    {
   "code": "COLLAB",
-  "name": "AUTODESK DESIGN COLLABARATION",
+  "name": "AUTODESK DESIGN COLLABARATION (ACC)",
   "languages": ["DEU", "JPN", "FRA", "ESP", "NLD", "FRC", "ENG", "CHS", "CHT", "DAN", "SWE", "KOR", "ITA", "NOR"],
   "usesYearBranch": false
 },
 {
   "code": "DOCS",
-  "name": "Autodesk Docs",
+  "name": "Autodesk Docs (ACC)",
   "languages": ["DEU", "JPN", "FRA", "ESP", "NLD", "FRC", "ENG", "CHS", "CHT", "DAN", "SWE", "KOR", "ITA", "NOR"],
   "usesYearBranch": false
 },
