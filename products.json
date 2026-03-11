@@ -90,6 +90,12 @@
     "usesYearBranch": false
   },
   {
+  "code": "INVNTOR",
+  "name": "Autodesk Inventor",
+  "languages": ["CHS", "CHT", "CSY", "DEU", "ESP", "FRA", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
+  "usesYearBranch": true
+},
+  {
     "code": "VEHTRK",
     "name": "Autodesk Vehicle Tracking",
     "languages": ["DEU", "JPN", "CHS", "FRA", "ITA", "ESP", "ENG", "CHT", "KOR", "RUS", "CSY", "PLK", "PTB", "HUN"],
