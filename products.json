@@ -110,7 +110,7 @@
   {
     "code": "INFDS",
     "name": "InfoDrainage",
-    "languages": ["ENG", "ESP", "FRA"],
+    "languages": ["DEU", "ENG", "ESP", "FRA", "JPN"],
     "usesYearBranch": false
   },
   {
