@@ -18,16 +18,16 @@
     "usesYearBranch": true
   },
   {
-  "code": "INVNTOR",
-  "name": "Autodesk Inventor",
-  "languages": ["CHS", "CHT", "CSY", "DEU", "ESP", "FRA", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
-  "usesYearBranch": true
+    "code": "INVNTOR",
+    "name": "Autodesk Inventor",
+    "languages": ["CHS", "CHT", "CSY", "DEU", "ESP", "FRA", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
+    "usesYearBranch": true
   },
-  {
-  "code": "BUILD",
-  "name": "ACC Forma Build",
-  "languages": ["DEU", "JPN", "FRA", "ESP", "NLD", "FRC", "ENG", "CHS", "CHT", "DAN", "SWE", "KOR", "ITA", "NOR"],
-  "usesYearBranch": false
+   {
+    "code": "BUILD",
+    "name": "ACC Forma Build",
+    "languages": ["DEU", "JPN", "FRA", "ESP", "NLD", "FRC", "ENG", "CHS", "CHT", "DAN", "SWE", "KOR", "ITA", "NOR"],
+    "usesYearBranch": false
   },
   {
   "code": "TNNUINV",
