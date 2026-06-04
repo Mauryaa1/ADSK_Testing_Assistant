@@ -48,6 +48,12 @@
     "usesYearBranch": false
   },
   {
+    "code": "BESS",
+    "name": "Forma Build Essentials",
+    "languages": ["DEU", "JPN", "FRA", "ESP", "NLD", "FRC", "ENG", "CHS", "CHT", "DAN", "SWE", "ITA", "KOR", "NOR"],
+    "usesYearBranch": false
+  },
+  {
     "code": "DATAGR",
     "name": "AUTODESK DATUM-360",
     "languages": ["ENG", "DEU", "FRA", "ESP", "FRC", "JPN", "CHS", "DAN", "NLD", "SWE"],
