@@ -30,6 +30,12 @@
     "usesYearBranch": false
   },
   {
+    "code": "BIM360D",
+    "name": "Autodesk BIM 360",
+    "languages": ["DEU", "JPN", "CHS", "FRA", "ESP", "PTB", "DAN", "NLD", "SWE", "NOR", "PLK", "CSY"],
+    "usesYearBranch": false
+  },
+  {
   "code": "TNNUINV",
   "name": "Autodesk Inventor Nesting",
   "languages": ["CHS", "DEU", "ESP", "FRA", "ITA", "JPN"],
