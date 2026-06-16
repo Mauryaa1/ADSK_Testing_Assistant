@@ -12,9 +12,9 @@
     "usesYearBranch": false
   },
   {
-    "code": "CONNECT",
-    "name": "Autodesk Connect",
-    "languages": ["CHS", "CHT", "CSY", "DEU", "ESP", "FRA", "HUN", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
+    "code": "MDB",
+    "name": "Moldflow Material Database",
+    "languages": ["CHS", "CHT", "JPN", "KOR", "ESP", "DEU", "FRA", "PTG"],
     "usesYearBranch": false
   },
   {
