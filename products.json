@@ -12,6 +12,12 @@
     "usesYearBranch": false
   },
   {
+    "code": "CONNECT",
+    "name": "Autodesk Connect",
+    "languages": ["CHS", "CHT", "CSY", "DEU", "ESP", "FRA", "HUN", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
+    "usesYearBranch": false
+  },
+  {
     "code": "NINCAD",
     "name": "Autodesk NINCAD",
     "languages": ["CHS", "CHT", "DEU", "FRA", "ITA", "JPN", "KOR"],
