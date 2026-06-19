@@ -78,6 +78,12 @@
     "usesYearBranch": true
   },
   {
+      "code": "PRECON",
+      "name": "ACC Preconstruction",
+      "languages": ["DEU", "JPN", "FRA", "ESP", "NLD", "FRC", "ENG", "CHS", "CHT", "DAN", "SWE", "KOR", "ITA", "NOR"],
+      "usesYearBranch": false
+  },
+  {
     "code": "DATAGR",
     "name": "AUTODESK DATUM-360",
     "languages": ["ENG", "DEU", "FRA", "ESP", "FRC", "JPN", "CHS", "DAN", "NLD", "SWE"],
