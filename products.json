@@ -86,7 +86,7 @@
   {
     "code": "FDU",
     "name": "Factory Design Utilities",
-    "languages": ["CHS", "CHT", "CSY", "DEU", "ENU", "ESP", "FRA", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
+    "languages": ["CHS", "CHT", "CSY", "DEU", "ESP", "FRA", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
     "usesYearBranch": true
   },
   {
