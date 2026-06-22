@@ -84,6 +84,12 @@
       "usesYearBranch": false
   },
   {
+    "code": "FDU",
+    "name": "Factory Design Utilities",
+    "languages": ["CHS", "CHT", "CSY", "DEU", "ENU", "ESP", "FRA", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
+    "usesYearBranch": true
+  },
+  {
     "code": "DATAGR",
     "name": "AUTODESK DATUM-360",
     "languages": ["ENG", "DEU", "FRA", "ESP", "FRC", "JPN", "CHS", "DAN", "NLD", "SWE"],
