@@ -90,6 +90,12 @@
     "usesYearBranch": true
   },
   {
+    "code": "VREDPRODUCTS",
+    "name": "VRED Products",
+    "languages": ["JPN", "CHS", "KOR"],
+    "usesYearBranch": true
+  },
+  {
     "code": "DATAGR",
     "name": "AUTODESK DATUM-360",
     "languages": ["ENG", "DEU", "FRA", "ESP", "FRC", "JPN", "CHS", "DAN", "NLD", "SWE"],
