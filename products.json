@@ -144,6 +144,12 @@
     "usesYearBranch": false
   },
   {
+    "code": "FDME",
+    "name": "Forma Data management essential (ACC)",
+    "languages": ["DEU", "JPN", "FRA", "ESP", "NLD", "FRC", "ENG", "CHS", "CHT", "DAN", "SWE", "ITA", "KOR", "NOR"],
+    "usesYearBranch": false
+  },
+  {
     "code": "VEHTRK",
     "name": "Autodesk Vehicle Tracking",
     "languages": ["DEU", "JPN", "CHS", "FRA", "ITA", "ESP", "ENG", "CHT", "KOR", "RUS", "CSY", "PLK", "PTB", "HUN"],
