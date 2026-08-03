@@ -6,6 +6,12 @@
     "usesYearBranch": false
   },
   {
+    "code": "VAULT",
+    "name": "Autodesk Vault",
+    "languages": ["CHS", "CHT", "CSY", "DEU", "ESP", "FRA", "HUN", "ITA", "JPN", "KOR", "PLK", "PTB", "RUS"],
+    "usesYearBranch": true
+  },
+  {
     "code": "PLM",
     "name": "Autodesk Fusion Manage",
     "languages": ["CHS", "CSY", "DEU", "FRA", "ITA", "JPN", "KOR"],
