@@ -156,6 +156,12 @@
     "usesYearBranch": false
   },
   {
+    "code": "FCAM",
+    "name": "FeatureCam",
+    "languages": ["CHS", "DEU", "ESP", "FRA", "ITA", "JPN", "PLK", "PTB", "RUS"],
+    "usesYearBranch": true
+  },
+  {
     "code": "VEHTRK",
     "name": "Autodesk Vehicle Tracking",
     "languages": ["DEU", "JPN", "CHS", "FRA", "ITA", "ESP", "ENG", "CHT", "KOR", "RUS", "CSY", "PLK", "PTB", "HUN"],
