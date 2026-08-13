@@ -51,7 +51,6 @@ a { display: block; margin: 5px 0; color: #0b5394; text-decoration: none; word-b
 #loginError { color: #c0392b; font-size: 12.5px; margin-top: 8px; min-height: 16px; }
 #loginBox .button-row { justify-content: flex-end; }
 
-#toolContent.locked { display: none; }
 </style>
 </head>
 
@@ -60,14 +59,12 @@ a { display: block; margin: 5px 0; color: #0b5394; text-decoration: none; word-b
 <div class="container">
 
 <div id="authBar">
-  <span id="loggedInLabel" style="display:none;"></span>
   <a id="loginLink">Login</a>
-  <a id="logoutLink" style="display:none;">Logout</a>
 </div>
 
 <h2>Autodesk — Multi-Language Link Opener</h2>
 
-<div id="toolContent" class="locked">
+<div id="toolContent">
 
 <label>Product</label>
 <select id="productSelect">
@@ -123,42 +120,19 @@ a { display: block; margin: 5px 0; color: #0b5394; text-decoration: none; word-b
 
 <script>
 
-/* ================= AUTH GATE ================= */
+/* ================= LOGIN -> OPENS WORKLOAD TRACKER ================= */
 const AUTH_USER = 'admin';
 const AUTH_PASS = 'admin1231';
-const AUTH_SESSION_KEY = 'adskToolAuth';
 
-const authBar = document.getElementById('authBar');
+// TODO: replace with your deployed Workload Tracker web app URL
+// (Apps Script editor > Deploy > New deployment > Web app > copy the URL)
+const WORKLOAD_TRACKER_URL = 'https://script.google.com/macros/s/REPLACE_WITH_YOUR_DEPLOYMENT_ID/exec';
+
 const loginLink = document.getElementById('loginLink');
-const logoutLink = document.getElementById('logoutLink');
-const loggedInLabel = document.getElementById('loggedInLabel');
 const loginOverlay = document.getElementById('loginOverlay');
 const loginUser = document.getElementById('loginUser');
 const loginPass = document.getElementById('loginPass');
 const loginError = document.getElementById('loginError');
-const toolContent = document.getElementById('toolContent');
-
-function isLoggedIn() {
-  return sessionStorage.getItem(AUTH_SESSION_KEY) === '1';
-}
-
-function setLoggedIn(state) {
-  if (state) {
-    sessionStorage.setItem(AUTH_SESSION_KEY, '1');
-  } else {
-    sessionStorage.removeItem(AUTH_SESSION_KEY);
-  }
-  renderAuthState();
-}
-
-function renderAuthState() {
-  const loggedIn = isLoggedIn();
-  loginLink.style.display = loggedIn ? 'none' : 'inline';
-  logoutLink.style.display = loggedIn ? 'inline' : 'none';
-  loggedInLabel.style.display = loggedIn ? 'inline' : 'none';
-  loggedInLabel.textContent = loggedIn ? 'Signed in as admin' : '';
-  toolContent.classList.toggle('locked', !loggedIn);
-}
 
 function openLoginModal() {
   loginError.textContent = '';
@@ -176,23 +150,19 @@ function attemptLogin() {
   const u = loginUser.value.trim();
   const p = loginPass.value;
   if (u === AUTH_USER && p === AUTH_PASS) {
-    setLoggedIn(true);
     closeLoginModal();
+    window.open(WORKLOAD_TRACKER_URL, '_blank');
   } else {
     loginError.textContent = 'Incorrect username or password.';
   }
 }
 
 loginLink.addEventListener('click', openLoginModal);
-logoutLink.addEventListener('click', () => setLoggedIn(false));
 document.getElementById('loginCancelBtn').addEventListener('click', closeLoginModal);
 document.getElementById('loginSubmitBtn').addEventListener('click', attemptLogin);
 loginPass.addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
 loginUser.addEventListener('keydown', e => { if (e.key === 'Enter') loginPass.focus(); });
 loginOverlay.addEventListener('click', e => { if (e.target === loginOverlay) closeLoginModal(); });
-
-renderAuthState();
-if (!isLoggedIn()) openLoginModal();
 
 /* ================= EXISTING TOOL LOGIC (unchanged) ================= */
 
