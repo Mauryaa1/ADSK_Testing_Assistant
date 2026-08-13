@@ -6,7 +6,7 @@
 
 <style>
 body { font-family: Arial, sans-serif; margin: 20px; background: #f4f6f8; }
-.container { max-width: 900px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+.container { max-width: 900px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: relative; }
 h2 { color: #0078d4; }
 label { display: block; margin-top: 15px; font-weight: bold; }
 input, select { width: 100%; padding: 8px; margin-top: 5px; border-radius: 6px; border: 1px solid #ccc; }
@@ -16,6 +16,42 @@ button.secondary { background: #e5f0fa; color: #0078d4; border: 1px solid #0078d
 ul { margin-top: 10px; }
 a { display: block; margin: 5px 0; color: #0b5394; text-decoration: none; word-break: break-all; }
 #yearContainer, #manualContainer { display: none; }
+
+/* ---- Login gate ---- */
+#authBar {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+#authBar a, #authBar span { cursor: pointer; color: #0078d4; font-weight: bold; text-decoration: none; }
+#loggedInLabel { color: #444; font-weight: normal; margin-right: 10px; }
+
+#loginOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 30, 40, 0.55);
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+#loginBox {
+  background: #fff;
+  padding: 24px 28px;
+  border-radius: 10px;
+  width: 280px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  font-family: Arial, sans-serif;
+}
+#loginBox h3 { margin: 0 0 14px; color: #0078d4; }
+#loginBox input { width: 100%; padding: 8px; margin-top: 4px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
+#loginBox label { font-weight: bold; margin-top: 12px; display: block; font-size: 13px; }
+#loginError { color: #c0392b; font-size: 12.5px; margin-top: 8px; min-height: 16px; }
+#loginBox .button-row { justify-content: flex-end; }
+
+#toolContent.locked { display: none; }
 </style>
 </head>
 
@@ -23,7 +59,15 @@ a { display: block; margin: 5px 0; color: #0b5394; text-decoration: none; word-b
 
 <div class="container">
 
+<div id="authBar">
+  <span id="loggedInLabel" style="display:none;"></span>
+  <a id="loginLink">Login</a>
+  <a id="logoutLink" style="display:none;">Logout</a>
+</div>
+
 <h2>Autodesk — Multi-Language Link Opener</h2>
+
+<div id="toolContent" class="locked">
 
 <label>Product</label>
 <select id="productSelect">
@@ -57,9 +101,100 @@ a { display: block; margin: 5px 0; color: #0b5394; text-decoration: none; word-b
 <p id="status"></p>
 <ul id="linksList"></ul>
 
+</div><!-- /toolContent -->
+
+</div>
+
+<!-- ---- Login modal ---- -->
+<div id="loginOverlay">
+  <div id="loginBox">
+    <h3>Sign in</h3>
+    <label>Username</label>
+    <input id="loginUser" autocomplete="username">
+    <label>Password</label>
+    <input id="loginPass" type="password" autocomplete="current-password">
+    <div id="loginError"></div>
+    <div class="button-row">
+      <button class="secondary" id="loginCancelBtn" type="button">Cancel</button>
+      <button id="loginSubmitBtn" type="button">Sign in</button>
+    </div>
+  </div>
 </div>
 
 <script>
+
+/* ================= AUTH GATE ================= */
+const AUTH_USER = 'admin';
+const AUTH_PASS = 'admin1231';
+const AUTH_SESSION_KEY = 'adskToolAuth';
+
+const authBar = document.getElementById('authBar');
+const loginLink = document.getElementById('loginLink');
+const logoutLink = document.getElementById('logoutLink');
+const loggedInLabel = document.getElementById('loggedInLabel');
+const loginOverlay = document.getElementById('loginOverlay');
+const loginUser = document.getElementById('loginUser');
+const loginPass = document.getElementById('loginPass');
+const loginError = document.getElementById('loginError');
+const toolContent = document.getElementById('toolContent');
+
+function isLoggedIn() {
+  return sessionStorage.getItem(AUTH_SESSION_KEY) === '1';
+}
+
+function setLoggedIn(state) {
+  if (state) {
+    sessionStorage.setItem(AUTH_SESSION_KEY, '1');
+  } else {
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+  }
+  renderAuthState();
+}
+
+function renderAuthState() {
+  const loggedIn = isLoggedIn();
+  loginLink.style.display = loggedIn ? 'none' : 'inline';
+  logoutLink.style.display = loggedIn ? 'inline' : 'none';
+  loggedInLabel.style.display = loggedIn ? 'inline' : 'none';
+  loggedInLabel.textContent = loggedIn ? 'Signed in as admin' : '';
+  toolContent.classList.toggle('locked', !loggedIn);
+}
+
+function openLoginModal() {
+  loginError.textContent = '';
+  loginUser.value = '';
+  loginPass.value = '';
+  loginOverlay.style.display = 'flex';
+  loginUser.focus();
+}
+
+function closeLoginModal() {
+  loginOverlay.style.display = 'none';
+}
+
+function attemptLogin() {
+  const u = loginUser.value.trim();
+  const p = loginPass.value;
+  if (u === AUTH_USER && p === AUTH_PASS) {
+    setLoggedIn(true);
+    closeLoginModal();
+  } else {
+    loginError.textContent = 'Incorrect username or password.';
+  }
+}
+
+loginLink.addEventListener('click', openLoginModal);
+logoutLink.addEventListener('click', () => setLoggedIn(false));
+document.getElementById('loginCancelBtn').addEventListener('click', closeLoginModal);
+document.getElementById('loginSubmitBtn').addEventListener('click', attemptLogin);
+loginPass.addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
+loginUser.addEventListener('keydown', e => { if (e.key === 'Enter') loginPass.focus(); });
+loginOverlay.addEventListener('click', e => { if (e.target === loginOverlay) closeLoginModal(); });
+
+renderAuthState();
+if (!isLoggedIn()) openLoginModal();
+
+/* ================= EXISTING TOOL LOGIC (unchanged) ================= */
 
 let productsData = [];
 
