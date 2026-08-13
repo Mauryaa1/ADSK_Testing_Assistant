@@ -69,6 +69,11 @@
     tr:last-child td { border-bottom: none; }
     tr.clickable { cursor: pointer; }
     tr.clickable:hover { background: #fafbfc; }
+    tr.row-overdue { background: #fdeceb; }
+    tr.row-overdue:hover { background: #fbe0dd; }
+    .action-btn { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 9px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 4px; color: var(--text); }
+    .action-btn.danger { color: var(--warn); border-color: var(--warn); }
+    .action-btn.accent { color: var(--accent); border-color: var(--accent); }
 
     .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
     .badge.open { background: var(--accent-light); color: var(--accent); }
@@ -180,7 +185,7 @@
           </select>
         </h2>
         <table id="projectsTable">
-          <thead><tr><th>Ref ID</th><th>Project #</th><th>Total Hrs</th><th>Utilization</th><th>Deadline</th><th>Status</th></tr></thead>
+          <thead><tr><th>Ref ID</th><th>Project #</th><th>Total Hrs</th><th>Utilization</th><th>Deadline</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -250,6 +255,8 @@
     }
 
     // ================= INIT =================
+    const CACHE = { summary: null, projects: null, members: null, membersSummary: null };
+
     function init() {
       document.querySelectorAll('nav.tabs button').forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -275,14 +282,22 @@
       document.getElementById('loadingBanner').style.display = show ? 'block' : 'none';
     }
 
+    // One combined call on load/refresh instead of 4 separate ones — this is
+    // the main lever we have for speed, since Apps Script itself has some
+    // unavoidable per-request latency we can't remove entirely.
     async function refreshAll() {
-      showLoading(true);
+      showLoading(!CACHE.summary); // only show the blocking banner on the very first load
       try {
-        const summary = await apiGet('getDashboardSummary');
-        renderHeaderStats(summary);
-        await loadOverview();
+        const boot = await apiGet('getBootstrap');
+        CACHE.summary = boot.summary;
+        CACHE.projects = boot.projects;
+        CACHE.members = boot.members;
+        CACHE.membersSummary = boot.membersSummary;
+        renderHeaderStats(CACHE.summary);
+        renderOverviewProjects(CACHE.projects);
+        renderOverviewMembers(CACHE.membersSummary);
       } catch (err) {
-        alert('Could not connect to the backend:\n' + err.message + '\n\nCheck that API_BASE at the top of the script matches your deployed Apps Script URL.');
+        alert('Could not connect to the backend:\n' + err.message + '\n\nCheck that API_BASE at the top of the script matches your deployed Apps Script URL, and that the deployment is set to "Anyone".');
       } finally {
         showLoading(false);
       }
@@ -314,24 +329,22 @@
 
     // ================= OVERVIEW =================
     async function loadOverview() {
-      try {
-        const [projects, summary] = await Promise.all([
-          apiGet('getProjects', { statusFilter: 'All' }),
-          apiGet('getAllMembersSummary')
-        ]);
-        renderOverviewProjects(projects);
-        renderOverviewMembers(summary);
-      } catch (err) { console.error(err); }
+      if (CACHE.projects) { renderOverviewProjects(CACHE.projects); renderOverviewMembers(CACHE.membersSummary); }
+      refreshAll(); // quietly re-sync in the background
     }
 
     function renderOverviewProjects(projects) {
       const tbody = document.querySelector('#overviewProjectsTable tbody');
-      tbody.innerHTML = projects.map(p => `
-        <tr>
-          <td>${p.refId}</td><td>${p.projectNumber}</td><td>${p.totalHours}</td>
+      tbody.innerHTML = projects.map(p => {
+        const overdue = isOverdue(p);
+        return `
+        <tr class="${overdue ? 'row-overdue' : ''}">
+          <td>${p.refId}${overdue ? ' <span class="badge" style="background:#f5c6c0;color:#8a2f1c;">Overdue</span>' : ''}</td>
+          <td>${p.projectNumber}</td><td>${p.totalHours}</td>
           <td>${p.allocatedTotal}</td><td>${p.workedTotal}</td>
           <td>${p.unallocated}</td><td>${fmtDate(p.deadline)}</td><td>${statusBadge(p.status)}</td>
-        </tr>`).join('') || '<tr><td colspan="8" class="empty">No projects yet.</td></tr>';
+        </tr>`;
+      }).join('') || '<tr><td colspan="8" class="empty">No projects yet.</td></tr>';
     }
 
     function renderOverviewMembers(summary) {
@@ -347,8 +360,12 @@
     async function loadNewProjectForm() {
       document.getElementById('newProjectMsg').innerHTML = '';
       ['npRefId','npProjectNumber','npTotalHours','npDeadline','npDescription'].forEach(id => document.getElementById(id).value = '');
+      // Default deadline: last day of the current month
+      const now = new Date();
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      document.getElementById('npDeadline').value = lastDay.toISOString().slice(0, 10);
       try {
-        const members = await apiGet('getMembers');
+        const members = CACHE.members || await apiGet('getMembers');
         renderNpMemberList(members);
       } catch (err) {
         showMsg('newProjectMsg', err.message, 'error');
@@ -426,9 +443,17 @@
       document.getElementById('projectDetailCard').style.display = 'none';
       const filter = document.getElementById('projectsFilter').value;
       try {
-        const projects = await apiGet('getProjects', { statusFilter: filter });
+        const all = CACHE.projects || await apiGet('getProjects', { statusFilter: 'All' });
+        const projects = filter === 'All' ? all : all.filter(p => p.status === filter);
         renderProjectsList(projects);
       } catch (err) { console.error(err); }
+    }
+
+    function isOverdue(p) {
+      if (p.status !== 'Open' || !p.deadline) return false;
+      const today = new Date(); today.setHours(0,0,0,0);
+      const dl = new Date(p.deadline); dl.setHours(0,0,0,0);
+      return dl < today;
     }
 
     function renderProjectsList(projects) {
@@ -436,38 +461,56 @@
       tbody.innerHTML = projects.map(p => {
         const pct = p.totalHours > 0 ? Math.min(100, Math.round((p.workedTotal / p.totalHours) * 100)) : 0;
         const over = p.workedTotal > p.totalHours;
-        return `<tr class="clickable" onclick="openProjectDetail('${p.id}')">
-          <td>${p.refId}</td><td>${p.projectNumber}</td><td>${p.totalHours}</td>
+        const overdue = isOverdue(p);
+        const actions = p.status === 'Open'
+          ? `<button class="action-btn accent" onclick="event.stopPropagation(); openProjectDetail('${p.id}', true)">Edit</button>
+             <button class="action-btn danger" onclick="event.stopPropagation(); doCloseProject('${p.id}')">Close</button>`
+          : `<button class="action-btn" onclick="event.stopPropagation(); doReopenProject('${p.id}')">Reopen</button>`;
+        return `<tr class="clickable ${overdue ? 'row-overdue' : ''}" onclick="openProjectDetail('${p.id}')">
+          <td>${p.refId}${overdue ? ' <span class="badge" style="background:#f5c6c0;color:#8a2f1c;">Overdue</span>' : ''}</td>
+          <td>${p.projectNumber}</td><td>${p.totalHours}</td>
           <td><div class="bar-track"><div class="bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div></div>
               <span class="subtle">${p.workedTotal}/${p.totalHours} hrs</span></td>
           <td>${fmtDate(p.deadline)}</td><td>${statusBadge(p.status)}</td>
+          <td>${actions}</td>
         </tr>`;
-      }).join('') || '<tr><td colspan="6" class="empty">No projects in this filter.</td></tr>';
+      }).join('') || '<tr><td colspan="7" class="empty">No projects in this filter.</td></tr>';
     }
 
-    async function openProjectDetail(projectId) {
+    async function openProjectDetail(projectId, startInEdit) {
       try {
         const all = await apiGet('getProjects', { statusFilter: 'All' });
+        CACHE.projects = all;
         const p = all.find(x => x.id === projectId);
-        if (p) renderProjectDetail(p);
+        if (p) renderProjectDetail(p, !!startInEdit);
       } catch (err) { alert(err.message); }
     }
 
-    function renderProjectDetail(p) {
+    function renderProjectDetail(p, editMode) {
       const card = document.getElementById('projectDetailCard');
       card.style.display = 'block';
+
+      if (editMode) {
+        card.innerHTML = renderProjectEditForm(p);
+        return;
+      }
+
       const rows = p.members.map(a => `
         <div class="alloc-line">
           <div class="mname">${a.memberName}</div>
-          <div class="subtle">Allocated: ${a.hoursAllocated} hrs</div>
+          <label style="margin:0;">Allocated:</label>
+          <input type="number" min="0" step="0.5" value="${a.hoursAllocated}" data-alloc-hours="${a.id}" onchange="onAllocatedChange(this, '${p.id}')">
           <label style="margin:0;">Worked:</label>
           <input type="number" min="0" step="0.5" value="${a.hoursWorked}" data-alloc="${a.id}" onchange="onWorkedChange(this, '${p.id}')">
           <div class="rem">Remaining: <b>${a.remaining}</b> hrs</div>
+          <button class="action-btn danger" onclick="onRemoveAllocation('${a.id}', '${p.id}')">Remove</button>
         </div>`).join('') || '<div class="empty">No members assigned to this project yet.</div>';
+
+      const overdue = isOverdue(p);
 
       card.innerHTML = `
         <span class="back-link" onclick="document.getElementById('projectDetailCard').style.display='none'">&larr; Back to list</span>
-        <h2>${p.refId} <span class="subtle">(${p.projectNumber})</span></h2>
+        <h2>${p.refId} <span class="subtle">(${p.projectNumber})</span> ${overdue ? '<span class="badge" style="background:#f5c6c0;color:#8a2f1c;">Overdue</span>' : ''}</h2>
         <p class="subtle">${p.description || ''}</p>
         <div class="grid3" style="margin-bottom:14px;">
           <div><b>Total Hours:</b> ${p.totalHours}</div>
@@ -477,12 +520,106 @@
         <h3>Allocations</h3>
         <div id="allocLines-${p.id}">${rows}</div>
         <p class="subtle" style="margin-top:10px;">Unallocated pool: <b>${p.unallocated}</b> hrs</p>
-        <div style="margin-top:16px;">
+
+        <h3 style="margin-top:20px;">Add Member to This Project</h3>
+        <div style="display:flex; gap:10px; align-items:flex-end;">
+          <div style="flex:1;">
+            <label style="margin-top:0;">Member</label>
+            <select id="addMemberSelect-${p.id}"></select>
+          </div>
+          <div style="width:120px;">
+            <label style="margin-top:0;">Hours</label>
+            <input type="number" min="0" step="0.5" id="addMemberHours-${p.id}">
+          </div>
+          <button class="btn secondary" style="margin-top:0;" onclick="onAddAllocation('${p.id}')">Add</button>
+        </div>
+
+        <div style="margin-top:20px;">
+          <button class="btn secondary" onclick="openProjectDetail('${p.id}', true)">Edit Project Details</button>
           ${p.status === 'Open'
             ? `<button class="btn danger" onclick="doCloseProject('${p.id}')">Close Project</button>`
             : `<button class="btn secondary" onclick="doReopenProject('${p.id}')">Reopen Project</button>`}
         </div>
       `;
+      populateAddMemberSelect(p);
+    }
+
+    function renderProjectEditForm(p) {
+      return `
+        <span class="back-link" onclick="openProjectDetail('${p.id}')">&larr; Cancel / Back to detail</span>
+        <h2>Edit Project</h2>
+        <div id="editProjectMsg"></div>
+        <div class="grid2">
+          <div><label>Project Ref ID</label><input type="text" id="epRefId" value="${p.refId.replace(/"/g,'&quot;')}"></div>
+          <div><label>Project Number</label><input type="text" id="epProjectNumber" value="${p.projectNumber.replace(/"/g,'&quot;')}"></div>
+        </div>
+        <div class="grid3">
+          <div><label>Total Hours</label><input type="number" id="epTotalHours" min="0" step="0.5" value="${p.totalHours}"></div>
+          <div><label>Deadline</label><input type="date" id="epDeadline" value="${new Date(p.deadline).toISOString().slice(0,10)}"></div>
+          <div><label>Description</label><input type="text" id="epDescription" value="${(p.description||'').replace(/"/g,'&quot;')}"></div>
+        </div>
+        <p class="subtle" style="margin-top:10px;">Currently allocated to members: ${p.allocatedTotal} hrs — Total Hours can't be set below this.</p>
+        <button class="btn" style="margin-top:14px;" onclick="submitEditProject('${p.id}')">Save Changes</button>
+      `;
+    }
+
+    async function submitEditProject(projectId) {
+      const payload = {
+        projectId,
+        refId: document.getElementById('epRefId').value.trim(),
+        projectNumber: document.getElementById('epProjectNumber').value.trim(),
+        description: document.getElementById('epDescription').value.trim(),
+        totalHours: document.getElementById('epTotalHours').value,
+        deadline: document.getElementById('epDeadline').value
+      };
+      try {
+        await apiPost('updateProject', payload);
+        openProjectDetail(projectId);
+        refreshAll();
+      } catch (err) {
+        showMsg('editProjectMsg', err.message, 'error');
+      }
+    }
+
+    function populateAddMemberSelect(p) {
+      const sel = document.getElementById('addMemberSelect-' + p.id);
+      if (!sel) return;
+      const assignedIds = new Set(p.members.map(m => m.memberId));
+      const available = (CACHE.members || []).filter(m => m.active && !assignedIds.has(m.id));
+      sel.innerHTML = available.length
+        ? available.map(m => `<option value="${m.id}" data-name="${m.name}">${m.name}</option>`).join('')
+        : '<option value="">No available members</option>';
+    }
+
+    async function onAddAllocation(projectId) {
+      const sel = document.getElementById('addMemberSelect-' + projectId);
+      const hoursInput = document.getElementById('addMemberHours-' + projectId);
+      const memberId = sel.value;
+      const memberName = sel.selectedOptions[0] ? sel.selectedOptions[0].dataset.name : '';
+      const hours = hoursInput.value;
+      if (!memberId || !hours || Number(hours) <= 0) { alert('Choose a member and enter hours greater than 0.'); return; }
+      try {
+        await apiPost('addAllocationToProject', { projectId, memberId, memberName, hours });
+        openProjectDetail(projectId);
+        refreshAll();
+      } catch (err) { alert(err.message); }
+    }
+
+    async function onRemoveAllocation(allocationId, projectId) {
+      if (!confirm('Remove this member from the project? This deletes their allocated/worked hours record.')) return;
+      try {
+        await apiPost('removeAllocation', { allocationId });
+        openProjectDetail(projectId);
+        refreshAll();
+      } catch (err) { alert(err.message); }
+    }
+
+    async function onAllocatedChange(input, projectId) {
+      try {
+        await apiPost('updateAllocationHoursAllocated', { allocationId: input.dataset.allocHours, hoursAllocated: input.value });
+        openProjectDetail(projectId);
+        refreshAll();
+      } catch (err) { alert(err.message); openProjectDetail(projectId); }
     }
 
     async function onWorkedChange(input, projectId) {
@@ -504,13 +641,13 @@
 
     // ================= TEAM WORKLOAD =================
     async function loadTeamTab() {
-      try {
-        const members = await apiGet('getMembers');
-        const sel = document.getElementById('teamMemberSelect');
-        sel.innerHTML = '<option value="">-- select --</option>' +
-          members.filter(m => m.active).map(m => `<option value="${m.id}">${m.name}</option>`).join('');
-        document.getElementById('teamDetailCard').style.display = 'none';
-      } catch (err) { console.error(err); }
+      const members = CACHE.members || await apiGet('getMembers');
+      const sel = document.getElementById('teamMemberSelect');
+      const prevVal = sel.value;
+      sel.innerHTML = '<option value="">-- select --</option>' +
+        members.filter(m => m.active).map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+      sel.value = prevVal;
+      document.getElementById('teamDetailCard').style.display = 'none';
     }
 
     async function loadTeamDetail() {
@@ -541,10 +678,8 @@
     // ================= MEMBERS =================
     async function loadMembersTab() {
       document.getElementById('memberMsg').innerHTML = '';
-      try {
-        const members = await apiGet('getMembers');
-        renderMembersTable(members);
-      } catch (err) { console.error(err); }
+      const members = CACHE.members || await apiGet('getMembers');
+      renderMembersTable(members);
     }
 
     function renderMembersTable(members) {
