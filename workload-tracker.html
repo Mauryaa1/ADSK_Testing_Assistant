@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Workload Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --navy: #1c2b4a;
+      --accent: #2d7f6f;
+      --accent-light: #e6f4f1;
+      --warn: #c0562c;
+      --warn-light: #fbeee6;
+      --bg: #f5f6f8;
+      --border: #dde1e8;
+      --text: #1c2333;
+      --text-dim: #6b7284;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+    }
+    header {
+      background: var(--navy);
+      color: #fff;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    header h1 { margin: 0; font-size: 19px; font-weight: 600; }
+    .stat-row { display: flex; gap: 22px; flex-wrap: wrap; }
+    .stat { text-align: right; }
+    .stat .num { font-size: 18px; font-weight: 700; }
+    .stat .label { font-size: 11px; color: #b9c2d6; text-transform: uppercase; letter-spacing: 0.4px; }
+
+    nav.tabs {
+      display: flex;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      gap: 4px;
+      overflow-x: auto;
+    }
+    nav.tabs button {
+      background: none; border: none; padding: 13px 16px; font-size: 13.5px; font-weight: 600;
+      color: var(--text-dim); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap;
+    }
+    nav.tabs button.active { color: var(--navy); border-bottom-color: var(--accent); }
+
+    main { padding: 22px 28px 60px; max-width: 1200px; margin: 0 auto; }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 18px; }
+    .card h2 { margin: 0 0 14px; font-size: 15px; font-weight: 700; }
+    .card h3 { margin: 0 0 10px; font-size: 13.5px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th { text-align: left; padding: 8px 10px; color: var(--text-dim); font-weight: 600; border-bottom: 2px solid var(--border); white-space: nowrap; }
+    td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover { background: #fafbfc; }
+
+    .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+    .badge.open { background: var(--accent-light); color: var(--accent); }
+    .badge.closed { background: #eee; color: #777; }
+
+    .bar-track { background: #eef0f4; border-radius: 6px; height: 8px; width: 100%; overflow: hidden; }
+    .bar-fill { background: var(--accent); height: 100%; }
+    .bar-fill.over { background: var(--warn); }
+
+    label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-dim); margin: 12px 0 5px; }
+    input[type=text], input[type=number], input[type=date], input[type=email], select {
+      width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: 13.5px; font-family: inherit;
+    }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 16px; }
+
+    button.btn { background: var(--navy); color: #fff; border: none; border-radius: 7px; padding: 9px 18px; font-size: 13.5px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+    button.btn.secondary { background: #fff; color: var(--navy); border: 1px solid var(--border); }
+    button.btn.danger { background: #fff; color: var(--warn); border: 1px solid var(--warn); }
+    button.btn:disabled { opacity: 0.5; cursor: default; }
+
+    .member-pick-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f0f1f4; }
+    .member-pick-row input[type=checkbox] { width: 16px; height: 16px; }
+    .member-pick-row .mname { flex: 1; font-weight: 600; }
+    .member-pick-row input[type=number] { width: 90px; }
+
+    .alloc-line { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0f1f4; }
+    .alloc-line:last-child { border-bottom: none; }
+    .alloc-line .mname { width: 160px; font-weight: 600; }
+    .alloc-line input[type=number] { width: 90px; }
+    .alloc-line .rem { width: 110px; font-size: 12.5px; color: var(--text-dim); }
+
+    .msg { padding: 10px 14px; border-radius: 7px; font-size: 13px; margin: 10px 0; }
+    .msg.error { background: var(--warn-light); color: var(--warn); }
+    .msg.success { background: var(--accent-light); color: var(--accent); }
+
+    .empty { color: var(--text-dim); padding: 20px 0; text-align: center; font-size: 13.5px; }
+    .back-link { color: var(--accent); cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 14px; display: inline-block; }
+    .subtle { color: var(--text-dim); font-size: 12.5px; }
+    #loadingBanner { padding: 10px 28px; background: #fff3cd; color: #7a5c00; font-size: 13px; display: none; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Workload Tracker</h1>
+    <div class="stat-row" id="headerStats"></div>
+  </header>
+
+  <div id="loadingBanner">Connecting to backend…</div>
+
+  <nav class="tabs">
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="newproject">New Project</button>
+    <button data-tab="projects">Projects</button>
+    <button data-tab="team">Team Workload</button>
+    <button data-tab="members">Members</button>
+  </nav>
+
+  <main>
+
+    <!-- OVERVIEW -->
+    <div class="view active" id="view-overview">
+      <div class="card">
+        <h2>All Projects</h2>
+        <table id="overviewProjectsTable">
+          <thead><tr><th>Ref ID</th><th>Project #</th><th>Total Hrs</th><th>Allocated</th><th>Worked</th><th>Unallocated</th><th>Deadline</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Team Workload (Open Projects)</h2>
+        <table id="overviewMembersTable">
+          <thead><tr><th>Member</th><th>Allocated</th><th>Worked</th><th>Remaining</th><th>Open Projects</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- NEW PROJECT -->
+    <div class="view" id="view-newproject">
+      <div class="card">
+        <h2>Create Project</h2>
+        <div id="newProjectMsg"></div>
+        <div class="grid2">
+          <div><label>Project Ref ID</label><input type="text" id="npRefId" placeholder="e.g. ACC &amp; BIM 360 FY27Q3 Doc_Aug"></div>
+          <div><label>Project Number</label><input type="text" id="npProjectNumber" placeholder="e.g. ADI_2607_P0645"></div>
+        </div>
+        <div class="grid3">
+          <div><label>Total Hours</label><input type="number" id="npTotalHours" min="0" step="0.5" placeholder="200"></div>
+          <div><label>Deadline</label><input type="date" id="npDeadline"></div>
+          <div><label>Description (optional)</label><input type="text" id="npDescription"></div>
+        </div>
+        <label style="margin-top:18px;">Assign Team Members &amp; Hours</label>
+        <div class="subtle" id="npUnallocatedNote" style="margin-bottom:6px;"></div>
+        <div id="npMemberList"></div>
+        <button class="btn" id="npSubmitBtn" style="margin-top:16px;">Create Project</button>
+      </div>
+    </div>
+
+    <!-- PROJECTS -->
+    <div class="view" id="view-projects">
+      <div class="card" id="projectsListCard">
+        <h2>Projects
+          <select id="projectsFilter" style="width:auto; display:inline-block; margin-left:10px; font-size:12.5px; padding:4px 8px;">
+            <option value="Open">Open</option>
+            <option value="Closed">Closed</option>
+            <option value="All">All</option>
+          </select>
+        </h2>
+        <table id="projectsTable">
+          <thead><tr><th>Ref ID</th><th>Project #</th><th>Total Hrs</th><th>Utilization</th><th>Deadline</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card" id="projectDetailCard" style="display:none;"></div>
+    </div>
+
+    <!-- TEAM WORKLOAD -->
+    <div class="view" id="view-team">
+      <div class="card">
+        <h2>Select Team Member</h2>
+        <select id="teamMemberSelect"></select>
+      </div>
+      <div class="card" id="teamDetailCard" style="display:none;"></div>
+    </div>
+
+    <!-- MEMBERS -->
+    <div class="view" id="view-members">
+      <div class="card">
+        <h2>Add Member</h2>
+        <div id="memberMsg"></div>
+        <div class="grid3">
+          <div><label>Name</label><input type="text" id="mName"></div>
+          <div><label>Email (optional)</label><input type="email" id="mEmail"></div>
+          <div><label>Role (optional)</label><input type="text" id="mRole"></div>
+        </div>
+        <button class="btn" id="mAddBtn" style="margin-top:14px;">Add Member</button>
+      </div>
+      <div class="card">
+        <h2>Team</h2>
+        <table id="membersTable">
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ================= BACKEND CONNECTION =================
+    // This is your deployed Apps Script Web App URL (Deploy > New deployment > Web app).
+    const API_BASE = 'https://script.google.com/macros/s/AKfycbzmm2T0cjksKkT-iHpMmv4Ve5Yi873J3KKiEwO5NCESw0VS-oHBR9ODdvgAGZxRXfcskw/exec';
+
+    async function apiGet(action, params) {
+      const url = new URL(API_BASE);
+      url.searchParams.set('action', action);
+      Object.entries(params || {}).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) url.searchParams.set(k, v);
+      });
+      const res = await fetch(url.toString());
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Request failed.');
+      return json.data;
+    }
+
+    // Sent as text/plain (not application/json) so the browser skips a CORS
+    // preflight request, which Apps Script web apps can't respond to.
+    async function apiPost(action, payload) {
+      const res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: action, payload: payload || {} })
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Request failed.');
+      return json.data;
+    }
+
+    // ================= INIT =================
+    function init() {
+      document.querySelectorAll('nav.tabs button').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+      document.getElementById('projectsFilter').addEventListener('change', loadProjectsList);
+      document.getElementById('npSubmitBtn').addEventListener('click', submitNewProject);
+      document.getElementById('mAddBtn').addEventListener('click', submitNewMember);
+      document.getElementById('teamMemberSelect').addEventListener('change', loadTeamDetail);
+      refreshAll();
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+      document.querySelectorAll('main .view').forEach(v => v.classList.toggle('active', v.id === 'view-' + tab));
+      if (tab === 'overview') loadOverview();
+      if (tab === 'newproject') loadNewProjectForm();
+      if (tab === 'projects') loadProjectsList();
+      if (tab === 'team') loadTeamTab();
+      if (tab === 'members') loadMembersTab();
+    }
+
+    function showLoading(show) {
+      document.getElementById('loadingBanner').style.display = show ? 'block' : 'none';
+    }
+
+    async function refreshAll() {
+      showLoading(true);
+      try {
+        const summary = await apiGet('getDashboardSummary');
+        renderHeaderStats(summary);
+        await loadOverview();
+      } catch (err) {
+        alert('Could not connect to the backend:\n' + err.message + '\n\nCheck that API_BASE at the top of the script matches your deployed Apps Script URL.');
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    function renderHeaderStats(s) {
+      document.getElementById('headerStats').innerHTML =
+        stat(s.openProjectCount, 'Open Projects') +
+        stat(s.activeMemberCount, 'Members') +
+        stat(s.totalAllocatedOpen + ' hrs', 'Allocated (Open)') +
+        stat(s.totalUnallocatedOpen + ' hrs', 'Unallocated');
+    }
+    function stat(num, label) {
+      return '<div class="stat"><div class="num">' + num + '</div><div class="label">' + label + '</div></div>';
+    }
+
+    function fmtDate(d) {
+      if (!d) return '—';
+      const dt = new Date(d);
+      if (isNaN(dt)) return '—';
+      return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    function statusBadge(status) {
+      return '<span class="badge ' + (status === 'Open' ? 'open' : 'closed') + '">' + status + '</span>';
+    }
+    function showMsg(elId, text, cls) {
+      document.getElementById(elId).innerHTML = '<div class="msg ' + cls + '">' + text + '</div>';
+    }
+
+    // ================= OVERVIEW =================
+    async function loadOverview() {
+      try {
+        const [projects, summary] = await Promise.all([
+          apiGet('getProjects', { statusFilter: 'All' }),
+          apiGet('getAllMembersSummary')
+        ]);
+        renderOverviewProjects(projects);
+        renderOverviewMembers(summary);
+      } catch (err) { console.error(err); }
+    }
+
+    function renderOverviewProjects(projects) {
+      const tbody = document.querySelector('#overviewProjectsTable tbody');
+      tbody.innerHTML = projects.map(p => `
+        <tr>
+          <td>${p.refId}</td><td>${p.projectNumber}</td><td>${p.totalHours}</td>
+          <td>${p.allocatedTotal}</td><td>${p.workedTotal}</td>
+          <td>${p.unallocated}</td><td>${fmtDate(p.deadline)}</td><td>${statusBadge(p.status)}</td>
+        </tr>`).join('') || '<tr><td colspan="8" class="empty">No projects yet.</td></tr>';
+    }
+
+    function renderOverviewMembers(summary) {
+      const tbody = document.querySelector('#overviewMembersTable tbody');
+      tbody.innerHTML = summary.map(m => `
+        <tr>
+          <td>${m.name}</td><td>${m.totalAllocated}</td><td>${m.totalWorked}</td>
+          <td>${m.totalRemaining}</td><td>${m.openProjectCount}</td>
+        </tr>`).join('') || '<tr><td colspan="5" class="empty">No members yet.</td></tr>';
+    }
+
+    // ================= NEW PROJECT =================
+    async function loadNewProjectForm() {
+      document.getElementById('newProjectMsg').innerHTML = '';
+      ['npRefId','npProjectNumber','npTotalHours','npDeadline','npDescription'].forEach(id => document.getElementById(id).value = '');
+      try {
+        const members = await apiGet('getMembers');
+        renderNpMemberList(members);
+      } catch (err) {
+        showMsg('newProjectMsg', err.message, 'error');
+      }
+    }
+
+    function renderNpMemberList(members) {
+      const container = document.getElementById('npMemberList');
+      container.innerHTML = members.filter(m => m.active).map(m => `
+        <div class="member-pick-row">
+          <input type="checkbox" class="np-check" data-id="${m.id}" data-name="${m.name}">
+          <div class="mname">${m.name}</div>
+          <input type="number" class="np-hours" min="0" step="0.5" placeholder="hrs" disabled>
+        </div>`).join('') || '<div class="empty">Add team members first (Members tab).</div>';
+
+      container.querySelectorAll('.np-check').forEach(cb => {
+        cb.addEventListener('change', e => {
+          const hoursInput = e.target.closest('.member-pick-row').querySelector('.np-hours');
+          hoursInput.disabled = !e.target.checked;
+          if (!e.target.checked) hoursInput.value = '';
+          updateUnallocatedNote();
+        });
+      });
+      container.querySelectorAll('.np-hours').forEach(inp => inp.addEventListener('input', updateUnallocatedNote));
+      document.getElementById('npTotalHours').addEventListener('input', updateUnallocatedNote);
+      updateUnallocatedNote();
+    }
+
+    function updateUnallocatedNote() {
+      const total = Number(document.getElementById('npTotalHours').value) || 0;
+      let allocated = 0;
+      document.querySelectorAll('.np-check:checked').forEach(cb => {
+        allocated += Number(cb.closest('.member-pick-row').querySelector('.np-hours').value) || 0;
+      });
+      const remaining = total - allocated;
+      const note = document.getElementById('npUnallocatedNote');
+      note.textContent = 'Total: ' + total + ' hrs  •  Allocated: ' + allocated + ' hrs  •  Unallocated: ' + remaining + ' hrs';
+      note.style.color = remaining < 0 ? '#c0562c' : '#6b7284';
+    }
+
+    async function submitNewProject() {
+      const refId = document.getElementById('npRefId').value.trim();
+      const projectNumber = document.getElementById('npProjectNumber').value.trim();
+      const totalHours = document.getElementById('npTotalHours').value;
+      const deadline = document.getElementById('npDeadline').value;
+      const description = document.getElementById('npDescription').value.trim();
+
+      const allocations = [];
+      document.querySelectorAll('.np-check:checked').forEach(cb => {
+        const hrs = Number(cb.closest('.member-pick-row').querySelector('.np-hours').value) || 0;
+        if (hrs > 0) allocations.push({ memberId: cb.dataset.id, memberName: cb.dataset.name, hours: hrs });
+      });
+
+      if (!refId || !projectNumber || !totalHours || !deadline) {
+        showMsg('newProjectMsg', 'Please fill in Ref ID, Project Number, Total Hours, and Deadline.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('npSubmitBtn');
+      btn.disabled = true;
+      try {
+        await apiPost('createProject', { refId, projectNumber, totalHours, deadline, description, allocations });
+        showMsg('newProjectMsg', 'Project created successfully.', 'success');
+        loadNewProjectForm();
+        refreshAll();
+      } catch (err) {
+        showMsg('newProjectMsg', err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ================= PROJECTS =================
+    async function loadProjectsList() {
+      document.getElementById('projectDetailCard').style.display = 'none';
+      const filter = document.getElementById('projectsFilter').value;
+      try {
+        const projects = await apiGet('getProjects', { statusFilter: filter });
+        renderProjectsList(projects);
+      } catch (err) { console.error(err); }
+    }
+
+    function renderProjectsList(projects) {
+      const tbody = document.querySelector('#projectsTable tbody');
+      tbody.innerHTML = projects.map(p => {
+        const pct = p.totalHours > 0 ? Math.min(100, Math.round((p.workedTotal / p.totalHours) * 100)) : 0;
+        const over = p.workedTotal > p.totalHours;
+        return `<tr class="clickable" onclick="openProjectDetail('${p.id}')">
+          <td>${p.refId}</td><td>${p.projectNumber}</td><td>${p.totalHours}</td>
+          <td><div class="bar-track"><div class="bar-fill ${over ? 'over' : ''}" style="width:${pct}%"></div></div>
+              <span class="subtle">${p.workedTotal}/${p.totalHours} hrs</span></td>
+          <td>${fmtDate(p.deadline)}</td><td>${statusBadge(p.status)}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="6" class="empty">No projects in this filter.</td></tr>';
+    }
+
+    async function openProjectDetail(projectId) {
+      try {
+        const all = await apiGet('getProjects', { statusFilter: 'All' });
+        const p = all.find(x => x.id === projectId);
+        if (p) renderProjectDetail(p);
+      } catch (err) { alert(err.message); }
+    }
+
+    function renderProjectDetail(p) {
+      const card = document.getElementById('projectDetailCard');
+      card.style.display = 'block';
+      const rows = p.members.map(a => `
+        <div class="alloc-line">
+          <div class="mname">${a.memberName}</div>
+          <div class="subtle">Allocated: ${a.hoursAllocated} hrs</div>
+          <label style="margin:0;">Worked:</label>
+          <input type="number" min="0" step="0.5" value="${a.hoursWorked}" data-alloc="${a.id}" onchange="onWorkedChange(this, '${p.id}')">
+          <div class="rem">Remaining: <b>${a.remaining}</b> hrs</div>
+        </div>`).join('') || '<div class="empty">No members assigned to this project yet.</div>';
+
+      card.innerHTML = `
+        <span class="back-link" onclick="document.getElementById('projectDetailCard').style.display='none'">&larr; Back to list</span>
+        <h2>${p.refId} <span class="subtle">(${p.projectNumber})</span></h2>
+        <p class="subtle">${p.description || ''}</p>
+        <div class="grid3" style="margin-bottom:14px;">
+          <div><b>Total Hours:</b> ${p.totalHours}</div>
+          <div><b>Deadline:</b> ${fmtDate(p.deadline)}</div>
+          <div>${statusBadge(p.status)}</div>
+        </div>
+        <h3>Allocations</h3>
+        <div id="allocLines-${p.id}">${rows}</div>
+        <p class="subtle" style="margin-top:10px;">Unallocated pool: <b>${p.unallocated}</b> hrs</p>
+        <div style="margin-top:16px;">
+          ${p.status === 'Open'
+            ? `<button class="btn danger" onclick="doCloseProject('${p.id}')">Close Project</button>`
+            : `<button class="btn secondary" onclick="doReopenProject('${p.id}')">Reopen Project</button>`}
+        </div>
+      `;
+    }
+
+    async function onWorkedChange(input, projectId) {
+      try {
+        await apiPost('updateHoursWorked', { allocationId: input.dataset.alloc, hoursWorked: input.value });
+        openProjectDetail(projectId);
+        refreshAll();
+      } catch (err) { alert(err.message); }
+    }
+
+    async function doCloseProject(projectId) {
+      try { await apiPost('closeProject', { projectId }); loadProjectsList(); refreshAll(); }
+      catch (err) { alert(err.message); }
+    }
+    async function doReopenProject(projectId) {
+      try { await apiPost('reopenProject', { projectId }); loadProjectsList(); refreshAll(); }
+      catch (err) { alert(err.message); }
+    }
+
+    // ================= TEAM WORKLOAD =================
+    async function loadTeamTab() {
+      try {
+        const members = await apiGet('getMembers');
+        const sel = document.getElementById('teamMemberSelect');
+        sel.innerHTML = '<option value="">-- select --</option>' +
+          members.filter(m => m.active).map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+        document.getElementById('teamDetailCard').style.display = 'none';
+      } catch (err) { console.error(err); }
+    }
+
+    async function loadTeamDetail() {
+      const id = document.getElementById('teamMemberSelect').value;
+      const card = document.getElementById('teamDetailCard');
+      if (!id) { card.style.display = 'none'; return; }
+      try {
+        const allocs = await apiGet('getMemberWorkload', { memberId: id });
+        card.style.display = 'block';
+        const totalAlloc = allocs.reduce((s, a) => s + (a.status === 'Open' ? a.hoursAllocated : 0), 0);
+        const totalRem = allocs.reduce((s, a) => s + (a.status === 'Open' ? a.remaining : 0), 0);
+        card.innerHTML = `
+          <h2>Workload Summary</h2>
+          <p class="subtle">Open-project total allocated: <b>${totalAlloc} hrs</b> &nbsp;•&nbsp; Remaining: <b>${totalRem} hrs</b></p>
+          <table>
+            <thead><tr><th>Project Ref ID</th><th>Project #</th><th>Allocated</th><th>Worked</th><th>Remaining</th><th>Deadline</th><th>Status</th></tr></thead>
+            <tbody>
+              ${allocs.map(a => `<tr>
+                <td>${a.projectRefId}</td><td>${a.projectNumber || ''}</td>
+                <td>${a.hoursAllocated}</td><td>${a.hoursWorked}</td><td>${a.remaining}</td>
+                <td>${fmtDate(a.deadline)}</td><td>${statusBadge(a.status || '')}</td>
+              </tr>`).join('') || '<tr><td colspan="7" class="empty">No projects assigned yet.</td></tr>'}
+            </tbody>
+          </table>`;
+      } catch (err) { alert(err.message); }
+    }
+
+    // ================= MEMBERS =================
+    async function loadMembersTab() {
+      document.getElementById('memberMsg').innerHTML = '';
+      try {
+        const members = await apiGet('getMembers');
+        renderMembersTable(members);
+      } catch (err) { console.error(err); }
+    }
+
+    function renderMembersTable(members) {
+      const tbody = document.querySelector('#membersTable tbody');
+      tbody.innerHTML = members.map(m => `
+        <tr>
+          <td>${m.name}</td><td>${m.email || '—'}</td><td>${m.role || '—'}</td>
+          <td>${m.active ? '<span class="badge open">Active</span>' : '<span class="badge closed">Inactive</span>'}</td>
+        </tr>`).join('') || '<tr><td colspan="4" class="empty">No members yet.</td></tr>';
+    }
+
+    async function submitNewMember() {
+      const name = document.getElementById('mName').value.trim();
+      const email = document.getElementById('mEmail').value.trim();
+      const role = document.getElementById('mRole').value.trim();
+      if (!name) { showMsg('memberMsg', 'Name is required.', 'error'); return; }
+      try {
+        await apiPost('addMember', { name, email, role });
+        showMsg('memberMsg', 'Member added.', 'success');
+        document.getElementById('mName').value = '';
+        document.getElementById('mEmail').value = '';
+        document.getElementById('mRole').value = '';
+        loadMembersTab();
+        refreshAll();
+      } catch (err) {
+        showMsg('memberMsg', err.message, 'error');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
