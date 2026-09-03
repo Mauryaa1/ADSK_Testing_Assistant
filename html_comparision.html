@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HTML structure check — Source vs Locale</title>
+<style>
+  :root{
+    --bg:#F5F6F4; --panel:#FFFFFF; --ink:#161A17; --muted:#5B6660; --hint:#8A948E;
+    --border:#DDE1DB; --border-strong:#C3C9C1;
+    --accent:#0F6E56; --accent-bg:#E1F5EE; --accent-text:#085041;
+    --danger:#A32D2D; --danger-bg:#FCEBEB; --danger-text:#791F1F;
+    --warn:#854F0B; --warn-bg:#FAEEDA; --warn-text:#633806;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    --mono:'JetBrains Mono',Consolas,monospace;
+    --radius:10px;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  *{box-sizing:border-box;}
+  html, body{height:100%;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);}
+  .topbar{padding:20px 24px 16px;border-bottom:1px solid var(--border);background:var(--panel);}
+  .topbar h1{font-size:18px;font-weight:600;margin:0 0 2px;letter-spacing:-0.01em;}
+  .topbar .sub{font-size:13px;color:var(--muted);margin:0;}
+
+  /* ---- Setup screen ---- */
+  #setup{max-width:900px;margin:32px auto;padding:0 20px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:680px){.grid{grid-template-columns:1fr;}}
+  .load-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+  .load-card h2{font-size:14px;font-weight:600;margin:0 0 12px;}
+  .load-card h2 .role{font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-left:8px;}
+  .role.source{background:var(--accent-bg);color:var(--accent-text);}
+  .role.locale{background:#EEEDFE;color:#26215C;}
+  .mode-switch{display:flex;gap:6px;margin-bottom:12px;}
+  .mode-btn{flex:1;padding:7px 10px;font-size:12.5px;border:1px solid var(--border);background:transparent;border-radius:7px;cursor:pointer;color:var(--muted);font-family:var(--sans);}
+  .mode-btn.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent-text);font-weight:500;}
+  .drop{display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--border-strong);border-radius:8px;padding:22px 14px;text-align:center;font-size:13px;color:var(--muted);cursor:pointer;transition:border-color .15s;min-height:70px;}
+  .drop:hover{border-color:var(--accent);}
+  .drop.has-file{border-style:solid;border-color:var(--accent);background:var(--accent-bg);color:var(--accent-text);}
+  .drop input{display:none;}
+  textarea{width:100%;min-height:120px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:8px;padding:10px;resize:vertical;color:var(--ink);background:#FCFCFB;}
+  .filename-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
+  .filename{font-size:12px;color:var(--muted);word-break:break-all;}
+  .clear-link{font-size:12px;color:var(--danger-text);background:none;border:none;cursor:pointer;font-family:var(--sans);padding:0;flex-shrink:0;text-decoration:underline;}
+  .clear-link:hover{opacity:0.75;}
+  .run-row{display:flex;flex-direction:column;align-items:center;margin:22px 0 8px;gap:8px;}
+  button.run{background:var(--ink);color:#fff;border:none;border-radius:8px;padding:11px 26px;font-size:14px;font-weight:500;cursor:pointer;font-family:var(--sans);}
+  button.run:disabled{opacity:0.4;cursor:not-allowed;}
+  button.run:hover:not(:disabled){opacity:0.88;}
+  .error-msg{color:var(--danger-text);font-size:12.5px;text-align:center;min-height:16px;}
+
+  /* ---- Compare screen: full-viewport flex layout ---- */
+  #compare{display:none;flex-direction:column;height:100vh;overflow:hidden;}
+
+  .cbar{flex:0 0 auto;padding:10px 20px 12px;background:var(--panel);border-bottom:1px solid var(--border);}
+  .cbar-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px;}
+  .cbar-title{font-size:13.5px;font-weight:600;margin:0;}
+  .cbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .pill{font-size:12px;font-weight:500;padding:4px 11px;border-radius:20px;display:flex;align-items:center;gap:6px;}
+  .pill.ok{background:var(--accent-bg);color:var(--accent-text);}
+  .pill.bad{background:var(--danger-bg);color:var(--danger-text);}
+  .sync-toggle{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 11px;border-radius:20px;border:1px solid var(--border-strong);background:var(--panel);color:var(--muted);cursor:pointer;font-family:var(--sans);}
+  .sync-toggle .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--hint);}
+  .sync-toggle.on{background:var(--accent-bg);border-color:var(--accent);color:var(--accent-text);}
+  .sync-toggle.on .sync-dot{background:var(--accent);}
+
+  .compare-grid{gap:10px;}
+  .compare-grid .load-card{padding:8px 12px;}
+  .compare-grid .load-card h2{font-size:12.5px;margin-bottom:6px;}
+  .compare-grid .mode-switch{margin-bottom:6px;gap:5px;}
+  .compare-grid .mode-btn{padding:4px 8px;font-size:11.5px;}
+  .compare-grid .drop{padding:7px 10px;min-height:0;font-size:12px;border-radius:6px;}
+  .compare-grid .filename-row{margin-top:5px;}
+  .compare-grid .filename, .compare-grid .clear-link{font-size:11px;}
+  .compare-grid textarea{min-height:70px;font-size:11.5px;}
+
+  .waiting-state{flex:1;display:flex;align-items:center;justify-content:center;color:var(--hint);font-size:14px;background:var(--panel);}
+  .back-btn{font-size:12.5px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:7px;padding:6px 12px;cursor:pointer;font-family:var(--sans);}
+  .back-btn:hover{border-color:var(--border-strong);}
+
+  #compareBody{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+  .panes{flex:0 0 auto;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);min-height:140px;}
+  .pane{display:flex;flex-direction:column;background:var(--panel);min-height:0;}
+  .pane-head{flex:0 0 auto;padding:8px 16px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}
+  .pane-head .dot{width:8px;height:8px;border-radius:50%;}
+  .pane-head.source .dot{background:var(--accent);}
+  .pane-head.locale .dot{background:#7F77DD;}
+  .pane iframe{flex:1;width:100%;border:none;background:#fff;min-height:0;}
+
+  .drag-handle{flex:0 0 10px;background:var(--bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border);cursor:row-resize;display:flex;align-items:center;justify-content:center;position:relative;}
+  .drag-handle:hover, .drag-handle.dragging{background:var(--accent-bg);}
+  .drag-handle .grip{width:36px;height:4px;border-radius:3px;background:var(--border-strong);}
+  .drag-handle:hover .grip, .drag-handle.dragging .grip{background:var(--accent);}
+
+  #issuesWrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:60px;overflow:hidden;}
+  .issues-head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--panel);}
+  .issues-head h2{font-size:13.5px;font-weight:600;margin:0;}
+  .issues-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .filter-row{display:flex;gap:6px;}
+  .filter-btn{font-size:12px;padding:5px 11px;border-radius:20px;border:1px solid var(--border);background:var(--panel);color:var(--muted);cursor:pointer;font-family:var(--sans);}
+  .filter-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  .issues-scroll{flex:1 1 auto;overflow-y:auto;padding:14px 20px;background:var(--bg);min-height:0;}
+  #issuesList{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;align-content:start;}
+
+  .clean-state{grid-column:1 / -1;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:28px;text-align:center;color:var(--muted);font-size:14px;}
+  .clean-state .big{font-size:15px;color:var(--accent-text);font-weight:500;margin-bottom:4px;}
+
+  .issue{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;cursor:pointer;transition:border-color .12s;}
+  .issue:hover{border-color:var(--border-strong);}
+  .issue-top{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .sev{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;padding:2px 9px;border-radius:20px;flex-shrink:0;}
+  .sev.critical{background:var(--danger-bg);color:var(--danger-text);}
+  .sev.warning{background:var(--warn-bg);color:var(--warn-text);}
+  .issue-title{font-size:13.5px;font-weight:500;}
+  .issue-body{font-size:13px;color:var(--muted);line-height:1.5;padding-left:0;}
+  .issue-body code{background:var(--bg);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:12px;color:var(--ink);}
+  .issue-loc{font-size:11.5px;color:var(--hint);margin-top:6px;}
+  .flash-highlight{outline:3px solid #E24B4A !important;outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <div class="topbar" style="border:none;padding:0 0 20px;background:transparent;">
+    <h1>HTML structure check</h1>
+    <p class="sub">Load a source page and its localized version. We'll flag anything structurally different — missing sections, dropped content, mismatched links or attributes — without comparing translated wording.</p>
+  </div>
+
+  <div class="grid">
+    <div class="load-card" id="loadCardA">
+      <h2>Source <span class="role source">left</span></h2>
+      <div class="mode-switch">
+        <button class="mode-btn active" data-side="A" data-mode="upload">Upload file</button>
+        <button class="mode-btn" data-side="A" data-mode="paste">Paste HTML</button>
+      </div>
+      <label class="drop" id="dropA">
+        <input type="file" id="fileA" accept=".html,.htm,text/html">
+        <span id="dropA-label">Click to choose a file or drag it here</span>
+      </label>
+      <textarea id="pasteA" style="display:none" placeholder="Paste source HTML here"></textarea>
+      <div class="filename-row">
+        <div class="filename" id="filenameA"></div>
+        <button class="clear-link" id="clearA" style="display:none">Clear</button>
+      </div>
+    </div>
+
+    <div class="load-card" id="loadCardB">
+      <h2>Locale <span class="role locale">right</span></h2>
+      <div class="mode-switch">
+        <button class="mode-btn active" data-side="B" data-mode="upload">Upload file</button>
+        <button class="mode-btn" data-side="B" data-mode="paste">Paste HTML</button>
+      </div>
+      <label class="drop" id="dropB">
+        <input type="file" id="fileB" accept=".html,.htm,text/html">
+        <span id="dropB-label">Click to choose a file or drag it here</span>
+      </label>
+      <textarea id="pasteB" style="display:none" placeholder="Paste localized HTML here"></textarea>
+      <div class="filename-row">
+        <div class="filename" id="filenameB"></div>
+        <button class="clear-link" id="clearB" style="display:none">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="run-row">
+    <div style="display:flex; gap:8px;">
+      <button class="run" id="runBtn" disabled>Compare pages</button>
+      <button class="back-btn" id="clearAllBtn">Clear all</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+</div>
+
+<div id="compare">
+  <div class="cbar">
+    <div class="cbar-top">
+      <h1 class="cbar-title">HTML structure check</h1>
+      <div class="cbar-right">
+        <div class="status" id="statusPills"></div>
+        <button class="sync-toggle" id="syncToggleBtn" aria-pressed="true">
+          <span class="sync-dot"></span> Sync scroll: On
+        </button>
+      </div>
+    </div>
+    <div class="grid compare-grid">
+      <div class="load-card" id="ccCardA">
+        <h2>Source <span class="role source">left</span></h2>
+        <div class="mode-switch">
+          <button class="cc-mode-btn active" data-side="A" data-mode="upload">Upload file</button>
+          <button class="cc-mode-btn" data-side="A" data-mode="paste">Paste HTML</button>
+        </div>
+        <label class="drop" id="ccDropA">
+          <input type="file" id="ccFileA" accept=".html,.htm,text/html">
+          <span id="ccDropA-label">Click to choose a file or drag it here</span>
+        </label>
+        <textarea id="ccPasteA" style="display:none" placeholder="Paste source HTML here"></textarea>
+        <div class="filename-row">
+          <div class="filename" id="ccFilenameA"></div>
+          <button class="clear-link" id="ccClearA" style="display:none">Clear</button>
+        </div>
+      </div>
+      <div class="load-card" id="ccCardB">
+        <h2>Locale <span class="role locale">right</span></h2>
+        <div class="mode-switch">
+          <button class="cc-mode-btn active" data-side="B" data-mode="upload">Upload file</button>
+          <button class="cc-mode-btn" data-side="B" data-mode="paste">Paste HTML</button>
+        </div>
+        <label class="drop" id="ccDropB">
+          <input type="file" id="ccFileB" accept=".html,.htm,text/html">
+          <span id="ccDropB-label">Click to choose a file or drag it here</span>
+        </label>
+        <textarea id="ccPasteB" style="display:none" placeholder="Paste localized HTML here"></textarea>
+        <div class="filename-row">
+          <div class="filename" id="ccFilenameB"></div>
+          <button class="clear-link" id="ccClearB" style="display:none">Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="waitingState" class="waiting-state" style="display:none">Load both a Source and a Locale file above to see the comparison.</div>
+
+  <div id="compareBody" style="display:none">
+    <div class="panes" id="panesEl">
+      <div class="pane">
+        <div class="pane-head source"><span class="dot"></span>Source</div>
+        <iframe id="iframeA"></iframe>
+      </div>
+      <div class="pane">
+        <div class="pane-head locale"><span class="dot"></span>Locale</div>
+        <iframe id="iframeB"></iframe>
+      </div>
+    </div>
+
+    <div class="drag-handle" id="dragHandle" title="Drag to resize"><span class="grip"></span></div>
+
+    <div id="issuesWrap">
+      <div class="issues-head">
+        <h2 id="issuesTitle">Issues</h2>
+        <div class="issues-controls">
+          <div class="filter-row" id="filterRow">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="critical">Critical</button>
+            <button class="filter-btn" data-filter="warning">Warnings</button>
+          </div>
+        </div>
+      </div>
+      <div class="issues-scroll" id="issuesScroll">
+        <div id="issuesList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   APP STATE
+   ========================================================================= */
+const Loader = { A: { mode:'upload', text:null, name:null }, B: { mode:'upload', text:null, name:null } };
+let currentIssues = [];
+let activeFilter = 'all';
+
+/* =========================================================================
+   SETUP SCREEN — file loading (upload or paste)
+   ========================================================================= */
+document.querySelectorAll('.mode-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const side = btn.dataset.side, mode = btn.dataset.mode;
+    document.querySelectorAll(`.mode-btn[data-side="${side}"]`).forEach(b=>b.classList.toggle('active', b===btn));
+    document.getElementById('drop'+side).style.display = mode==='upload' ? 'flex':'none';
+    document.getElementById('paste'+side).style.display = mode==='paste' ? 'block':'none';
+    Loader[side].mode = mode;
+    refreshRunButton();
+  });
+});
+
+['A','B'].forEach(side=>{
+  const fileInput = document.getElementById('file'+side);
+  const drop = document.getElementById('drop'+side);
+  const label = document.getElementById('drop'+side+'-label');
+  const filenameEl = document.getElementById('filename'+side);
+  const pasteEl = document.getElementById('paste'+side);
+
+  fileInput.addEventListener('change', e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      Loader[side].text = reader.result;
+      Loader[side].name = f.name;
+      Loader[side].size = f.size;
+      drop.classList.add('has-file');
+      label.textContent = 'Loaded: ' + f.name;
+      filenameEl.textContent = f.size.toLocaleString() + ' bytes';
+      document.getElementById('clear'+side).style.display = 'inline';
+      refreshRunButton();
+    };
+    reader.readAsText(f);
+  });
+
+  drop.addEventListener('dragover', e=>{ e.preventDefault(); });
+  drop.addEventListener('drop', e=>{
+    e.preventDefault();
+    if(e.dataTransfer.files[0]){ fileInput.files = e.dataTransfer.files; fileInput.dispatchEvent(new Event('change')); }
+  });
+
+  pasteEl.addEventListener('input', ()=>{
+    Loader[side].text = pasteEl.value;
+    Loader[side].name = 'pasted-html';
+    Loader[side].size = pasteEl.value.length;
+    document.getElementById('clear'+side).style.display = pasteEl.value ? 'inline' : 'none';
+    refreshRunButton();
+  });
+
+  document.getElementById('clear'+side).addEventListener('click', ()=> clearSide(side));
+});
+
+function clearSide(side){
+  Loader[side] = { mode: Loader[side].mode, text:null, name:null, size:null };
+  document.getElementById('file'+side).value = '';
+  document.getElementById('paste'+side).value = '';
+  document.getElementById('drop'+side).classList.remove('has-file');
+  document.getElementById('drop'+side+'-label').textContent = 'Click to choose a file or drag it here';
+  document.getElementById('filename'+side).textContent = '';
+  document.getElementById('clear'+side).style.display = 'none';
+  refreshRunButton();
+}
+
+function clearAll(){
+  clearSide('A');
+  clearSide('B');
+  document.getElementById('errorMsg').textContent = '';
+}
+document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+
+function refreshRunButton(){
+  const ready = Loader.A.text && Loader.A.text.length>0 && Loader.B.text && Loader.B.text.length>0;
+  document.getElementById('runBtn').disabled = !ready;
+}
+
+document.getElementById('runBtn').addEventListener('click', ()=>{
+  document.getElementById('errorMsg').textContent = '';
+  try{
+    launchCompareView();
+  }catch(err){
+    document.getElementById('errorMsg').textContent = 'Could not parse one of the files: ' + err.message;
+  }
+});
+
+/* =========================================================================
+   STRUCTURAL ANALYZER
+   Compares DOM shape only: tags, attributes, links, ids, empty/missing content.
+   Deliberately ignores translated wording — only presence/absence of content.
+   ========================================================================= */
+const StructuralAnalyzer = (function(){
+  const TEXT_HOLDERS = new Set(['p','li','h1','h2','h3','h4','h5','b','i','a','span','td','th']);
+
+  function directText(el){
+    let t = '';
+    for(const c of el.childNodes){ if(c.nodeType===3) t += c.textContent; }
+    return t.trim();
+  }
+
+  function flatten(doc){
+    const items = [];
+    function walk(el, path, indexPath){
+      if(el.nodeType!==1) return;
+      const siblings = el.parentElement ? Array.from(el.parentElement.children).filter(c=>c.tagName===el.tagName) : [];
+      const idx = siblings.indexOf(el);
+      const newPath = path + ' > ' + el.tagName.toLowerCase() + '[' + idx + ']';
+      const newIndexPath = indexPath.concat(Array.from(el.parentElement ? el.parentElement.children : []).indexOf(el));
+      const attrs = {};
+      for(const a of el.attributes) attrs[a.name] = a.value;
+      items.push({
+        path: newPath, indexPath: newIndexPath, tag: el.tagName.toLowerCase(), attrs,
+        directText: directText(el), isTextHolder: TEXT_HOLDERS.has(el.tagName.toLowerCase()),
+      });
+      for(const child of el.children) walk(child, newPath, newIndexPath);
+    }
+    walk(doc.documentElement, '', []);
+    return items;
+  }
+
+  function lcsBlocks(a, b, eq){
+    eq = eq || ((x,y)=>x===y);
+    const n=a.length, m=b.length;
+    const dp = Array.from({length:n+1}, ()=>new Int32Array(m+1));
+    for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--)
+      dp[i][j] = eq(a[i],b[j]) ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j], dp[i][j+1]);
+    const ops=[]; let i=0,j=0;
+    while(i<n && j<m){
+      if(eq(a[i],b[j])){ ops.push({type:'equal', ai:i, bj:j}); i++; j++; }
+      else if(dp[i+1][j] >= dp[i][j+1]){ ops.push({type:'delete', ai:i}); i++; }
+      else { ops.push({type:'insert', bj:j}); j++; }
+    }
+    while(i<n){ ops.push({type:'delete', ai:i}); i++; }
+    while(j<m){ ops.push({type:'insert', bj:j}); j++; }
+    const blocks=[];
+    for(const op of ops){
+      const last = blocks[blocks.length-1];
+      if(last && last.type===op.type){
+        if(op.ai!==undefined) last.aEnd = op.ai+1;
+        if(op.bj!==undefined) last.bEnd = op.bj+1;
+      } else {
+        blocks.push({ type: op.type,
+          aStart: op.ai!==undefined?op.ai:null, aEnd: op.ai!==undefined?op.ai+1:null,
+          bStart: op.bj!==undefined?op.bj:null, bEnd: op.bj!==undefined?op.bj+1:null });
+      }
+    }
+    return blocks;
+  }
+
+  function compareAttrs(a, b){
+    const diffs = {};
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for(const k of keys) if(a[k] !== b[k]) diffs[k] = {a: a[k]??null, b: b[k]??null};
+    return diffs;
+  }
+
+  function analyze(htmlA, htmlB){
+    const parser = new DOMParser();
+    const docA = parser.parseFromString(htmlA, 'text/html');
+    const docB = parser.parseFromString(htmlB, 'text/html');
+    const treeA = flatten(docA), treeB = flatten(docB);
+    const tagsA = treeA.map(t=>t.tag), tagsB = treeB.map(t=>t.tag);
+    const blocks = lcsBlocks(tagsA, tagsB);
+
+    const issues = [];
+
+    for(const blk of blocks){
+      if(blk.type==='equal'){
+        for(let k=0;k<blk.aEnd-blk.aStart;k++){
+          const na = treeA[blk.aStart+k], nb = treeB[blk.bStart+k];
+          const ad = compareAttrs(na.attrs, nb.attrs);
+          if(Object.keys(ad).length){
+            const changeList = Object.entries(ad).map(([key,v])=>`<code>${key}</code>: "${v.a}" changed to "${v.b}"`).join('; ');
+            issues.push({
+              severity:'warning', category:'Attribute changed',
+              title: `<code>&lt;${na.tag}&gt;</code> attribute differs`,
+              body: changeList, indexPath: na.indexPath,
+            });
+          }
+          if(na.isTextHolder){
+            const hasA = na.directText.length>0, hasB = nb.directText.length>0;
+            if(hasA && !hasB){
+              issues.push({
+                severity:'critical', category:'Content dropped',
+                title: `<code>&lt;${na.tag}&gt;</code> is empty in the locale version`,
+                body: `Source has text here, but the same position in the locale page is blank.`,
+                indexPath: na.indexPath, quotePreview: na.directText.slice(0,70),
+              });
+            } else if(!hasA && hasB){
+              issues.push({
+                severity:'warning', category:'Content added',
+                title: `<code>&lt;${nb.tag}&gt;</code> has text only in the locale version`,
+                body: `The source page has nothing here, but the locale page does.`,
+                indexPath: nb.indexPath,
+              });
+            }
+          }
+        }
+      } else {
+        const nodes = blk.aStart!==null ? treeA.slice(blk.aStart, blk.aEnd) : treeB.slice(blk.bStart, blk.bEnd);
+        const side = blk.aStart!==null ? 'A' : 'B';
+        for(const n of nodes){
+          if(!n.isTextHolder && !['div','ul','img','table','tr'].includes(n.tag)) continue;
+          issues.push({
+            severity:'critical',
+            category: side==='A' ? 'Section missing' : 'Section added',
+            title: side==='A'
+              ? `<code>&lt;${n.tag}&gt;</code> section exists in Source but not in Locale`
+              : `<code>&lt;${n.tag}&gt;</code> section exists in Locale but not in Source`,
+            body: n.directText ? `Content: "${n.directText.slice(0,90)}"` : 'No direct text — check nested content.',
+            indexPath: n.indexPath, side,
+          });
+        }
+      }
+    }
+
+    const linksA = new Set(Array.from(docA.querySelectorAll('a[href],img[src]')).map(el=>el.getAttribute('href')||el.getAttribute('src')));
+    const linksB = new Set(Array.from(docB.querySelectorAll('a[href],img[src]')).map(el=>el.getAttribute('href')||el.getAttribute('src')));
+    for(const l of linksA) if(!linksB.has(l)) issues.push({ severity:'critical', category:'Link missing', title:'Link or image only in Source', body:`<code>${l}</code> does not appear anywhere in the locale page.` });
+    for(const l of linksB) if(!linksA.has(l)) issues.push({ severity:'warning', category:'Link added', title:'Link or image only in Locale', body:`<code>${l}</code> does not appear in the source page.` });
+
+    const idsA = Array.from(docA.querySelectorAll('[id]')).map(el=>el.id);
+    const idsB = Array.from(docB.querySelectorAll('[id]')).map(el=>el.id);
+    if(JSON.stringify(idsA) !== JSON.stringify(idsB)){
+      issues.push({ severity:'warning', category:'IDs differ', title:'Element IDs do not match between pages', body:`Source: <code>${idsA.join(', ')||'none'}</code><br>Locale: <code>${idsB.join(', ')||'none'}</code>` });
+    }
+
+    return issues;
+  }
+
+  return { analyze };
+})();
+
+/* =========================================================================
+   COMPARE VIEW — side-by-side rendered preview + synced scroll
+   ========================================================================= */
+function launchCompareView(){
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('compare').style.display = 'flex';
+  syncCardDisplay('A');
+  syncCardDisplay('B');
+  refreshComparison();
+}
+
+/* ---- Load-cards on the compare screen (same component as setup, always live) ---- */
+['A','B'].forEach(side=>{
+  document.querySelectorAll(`.cc-mode-btn[data-side="${side}"]`).forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const mode = btn.dataset.mode;
+      document.querySelectorAll(`.cc-mode-btn[data-side="${side}"]`).forEach(b=>b.classList.toggle('active', b===btn));
+      document.getElementById('ccDrop'+side).style.display = mode==='upload' ? 'flex':'none';
+      document.getElementById('ccPaste'+side).style.display = mode==='paste' ? 'block':'none';
+    });
+  });
+
+  const ccFileInput = document.getElementById('ccFile'+side);
+  const ccDrop = document.getElementById('ccDrop'+side);
+  const ccPaste = document.getElementById('ccPaste'+side);
+
+  ccFileInput.addEventListener('change', e=>{
+    const f = e.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      Loader[side].text = reader.result;
+      Loader[side].name = f.name;
+      Loader[side].size = f.size;
+      syncCardDisplay(side);
+      refreshComparison();
+    };
+    reader.readAsText(f);
+  });
+  ccDrop.addEventListener('dragover', e=> e.preventDefault());
+  ccDrop.addEventListener('drop', e=>{
+    e.preventDefault();
+    if(e.dataTransfer.files[0]){ ccFileInput.files = e.dataTransfer.files; ccFileInput.dispatchEvent(new Event('change')); }
+  });
+
+  let pasteDebounce;
+  ccPaste.addEventListener('input', ()=>{
+    clearTimeout(pasteDebounce);
+    pasteDebounce = setTimeout(()=>{
+      Loader[side].text = ccPaste.value || null;
+      Loader[side].name = 'pasted-html';
+      Loader[side].size = ccPaste.value ? ccPaste.value.length : 0;
+      syncCardDisplay(side);
+      refreshComparison();
+    }, 350);
+  });
+
+  document.getElementById('ccClear'+side).addEventListener('click', ()=>{
+    Loader[side] = { mode: Loader[side].mode, text:null, name:null, size:null };
+    ccFileInput.value = '';
+    ccPaste.value = '';
+    syncCardDisplay(side);
+    refreshComparison();
+  });
+});
+
+function syncCardDisplay(side){
+  const has = !!Loader[side].text;
+  const drop = document.getElementById('cc'+'Drop'+side);
+  const label = document.getElementById('cc'+'Drop'+side+'-label');
+  const filenameEl = document.getElementById('cc'+'Filename'+side);
+  const clearBtn = document.getElementById('cc'+'Clear'+side);
+  drop.classList.toggle('has-file', has);
+  label.textContent = has ? 'Loaded: ' + Loader[side].name : 'Click to choose a file or drag it here';
+  filenameEl.textContent = has && Loader[side].size!=null ? Loader[side].size.toLocaleString() + ' bytes' : '';
+  clearBtn.style.display = has ? 'inline' : 'none';
+}
+
+function refreshComparison(){
+  const bothReady = Loader.A.text && Loader.B.text;
+  document.getElementById('waitingState').style.display = bothReady ? 'none' : 'flex';
+  document.getElementById('compareBody').style.display = bothReady ? 'flex' : 'none';
+  if(!bothReady){
+    document.getElementById('statusPills').innerHTML = '';
+    return;
+  }
+  try{
+    currentIssues = StructuralAnalyzer.analyze(Loader.A.text, Loader.B.text);
+  }catch(err){
+    document.getElementById('statusPills').innerHTML = `<span class="pill bad">Could not parse: ${err.message}</span>`;
+    return;
+  }
+  document.getElementById('iframeA').srcdoc = Loader.A.text;
+  document.getElementById('iframeB').srcdoc = Loader.B.text;
+  ScrollSync.init(document.getElementById('iframeA'), document.getElementById('iframeB'));
+  renderStatusPills(currentIssues);
+  renderIssues(currentIssues);
+  if(!panesHeightUserSet){
+    requestAnimationFrame(()=>{
+      const total = document.getElementById('compareBody').getBoundingClientRect().height;
+      if(total > 0) document.getElementById('panesEl').style.height = Math.round(total * 0.6) + 'px';
+    });
+  }
+}
+
+/* ---- Synced scrolling, toggleable ---- */
+let syncScrollEnabled = true;
+document.getElementById('syncToggleBtn').addEventListener('click', ()=>{
+  syncScrollEnabled = !syncScrollEnabled;
+  const btn = document.getElementById('syncToggleBtn');
+  btn.classList.toggle('on', syncScrollEnabled);
+  btn.setAttribute('aria-pressed', String(syncScrollEnabled));
+  btn.innerHTML = `<span class="sync-dot"></span> Sync scroll: ${syncScrollEnabled ? 'On' : 'Off'}`;
+});
+document.getElementById('syncToggleBtn').classList.add('on');
+
+const ScrollSync = (function(){
+  let syncing = false;
+  function pctScroll(sourceWin, targetWin){
+    if(syncing || !syncScrollEnabled) return;
+    syncing = true;
+    const sDoc = sourceWin.document.documentElement;
+    const tDoc = targetWin.document.documentElement;
+    const sMax = sDoc.scrollHeight - sourceWin.innerHeight;
+    const tMax = tDoc.scrollHeight - targetWin.innerHeight;
+    const pct = sMax>0 ? sourceWin.scrollY / sMax : 0;
+    targetWin.scrollTo(0, pct * Math.max(tMax,0));
+    requestAnimationFrame(()=>{ syncing = false; });
+  }
+  function init(iframeA, iframeB){
+    let ready = 0;
+    function attach(){
+      ready++;
+      if(ready<2) return;
+      const winA = iframeA.contentWindow, winB = iframeB.contentWindow;
+      winA.addEventListener('scroll', ()=>pctScroll(winA, winB));
+      winB.addEventListener('scroll', ()=>pctScroll(winB, winA));
+    }
+    iframeA.onload = attach;
+    iframeB.onload = attach;
+  }
+  return { init };
+})();
+
+/* =========================================================================
+   ISSUES PANEL
+   ========================================================================= */
+function renderStatusPills(issues){
+  const critical = issues.filter(i=>i.severity==='critical').length;
+  const warning = issues.filter(i=>i.severity==='warning').length;
+  const wrap = document.getElementById('statusPills');
+  if(issues.length===0){
+    wrap.innerHTML = `<span class="pill ok">&#10003; Structure matches</span>`;
+  } else {
+    wrap.innerHTML = '';
+    if(critical) wrap.innerHTML += `<span class="pill bad">${critical} critical</span>`;
+    if(warning) wrap.innerHTML += `<span class="pill" style="background:var(--warn-bg);color:var(--warn-text)">${warning} warning${warning===1?'':'s'}</span>`;
+  }
+}
+
+document.getElementById('filterRow').addEventListener('click', e=>{
+  const btn = e.target.closest('.filter-btn');
+  if(!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active', b===btn));
+  activeFilter = btn.dataset.filter;
+  renderIssues(currentIssues);
+});
+
+/* ---- Drag handle: resize the panes vs. issues split by dragging up/down ---- */
+let panesHeightUserSet = false;
+(function(){
+  const panesEl = document.getElementById('panesEl');
+  const dragHandle = document.getElementById('dragHandle');
+  const compareBody = document.getElementById('compareBody');
+  let dragging = false, startY = 0, startHeight = 0;
+
+  function pointY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
+
+  function dragStart(e){
+    dragging = true;
+    panesHeightUserSet = true;
+    startY = pointY(e);
+    startHeight = panesEl.getBoundingClientRect().height;
+    dragHandle.classList.add('dragging');
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  }
+  function dragMove(e){
+    if(!dragging) return;
+    const delta = pointY(e) - startY;
+    const totalH = compareBody.getBoundingClientRect().height;
+    const handleH = dragHandle.getBoundingClientRect().height;
+    const minPanes = 120, minIssues = 90;
+    let next = startHeight + delta;
+    next = Math.max(minPanes, Math.min(next, totalH - handleH - minIssues));
+    panesEl.style.height = next + 'px';
+    e.preventDefault();
+  }
+  function dragEnd(){
+    if(!dragging) return;
+    dragging = false;
+    dragHandle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+
+  dragHandle.addEventListener('mousedown', dragStart);
+  window.addEventListener('mousemove', dragMove);
+  window.addEventListener('mouseup', dragEnd);
+  dragHandle.addEventListener('touchstart', dragStart, {passive:false});
+  window.addEventListener('touchmove', dragMove, {passive:false});
+  window.addEventListener('touchend', dragEnd);
+})();
+
+function renderIssues(issues){
+  const list = document.getElementById('issuesList');
+  document.getElementById('issuesTitle').textContent = issues.length ? `Issues (${issues.length})` : 'Issues';
+  const filtered = activeFilter==='all' ? issues : issues.filter(i=>i.severity===activeFilter);
+
+  if(issues.length===0){
+    list.innerHTML = `<div class="clean-state"><div class="big">No structural issues found</div>Tags, attributes, links, ids, and content coverage all match between Source and Locale.</div>`;
+    return;
+  }
+  if(filtered.length===0){
+    list.innerHTML = `<div class="clean-state">No ${activeFilter} issues.</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map((iss, idx)=>`
+    <div class="issue" data-idx="${issues.indexOf(iss)}">
+      <div class="issue-top">
+        <span class="sev ${iss.severity}">${iss.severity}</span>
+        <span class="issue-title">${iss.title}</span>
+      </div>
+      <div class="issue-body">${iss.body}</div>
+      ${iss.indexPath ? `<div class="issue-loc">Click to locate on the page &rarr;</div>` : ''}
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.issue').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const iss = currentIssues[+card.dataset.idx];
+      if(iss.indexPath) locateOnPage(iss.indexPath, iss.side);
+    });
+  });
+}
+
+function locateOnPage(indexPath, side){
+  const targets = side==='B' ? [document.getElementById('iframeB')] :
+                   side==='A' ? [document.getElementById('iframeA')] :
+                   [document.getElementById('iframeA'), document.getElementById('iframeB')];
+  for(const iframe of targets){
+    try{
+      let node = iframe.contentDocument.documentElement;
+      for(const idx of indexPath){
+        if(!node || !node.children[idx]) { node = null; break; }
+        node = node.children[idx];
+      }
+      if(node){
+        node.scrollIntoView({block:'center', behavior:'smooth'});
+        node.classList.add('flash-highlight');
+        setTimeout(()=>node.classList.remove('flash-highlight'), 1400);
+      }
+    }catch(e){}
+  }
+}
+</script>
+</body>
+</html>
