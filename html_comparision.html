@@ -96,10 +96,15 @@
   #issuesWrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:60px;overflow:hidden;}
   .issues-head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--panel);}
   .issues-head h2{font-size:13.5px;font-weight:600;margin:0;}
-  .issues-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .issues-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
   .filter-row{display:flex;gap:6px;}
   .filter-btn{font-size:12px;padding:5px 11px;border-radius:20px;border:1px solid var(--border);background:var(--panel);color:var(--muted);cursor:pointer;font-family:var(--sans);}
   .filter-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  .issue-nav{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+  .issue-nav button{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--panel);cursor:pointer;font-size:13px;color:var(--ink);font-family:var(--sans);}
+  .issue-nav button:hover{border-color:var(--border-strong);background:var(--bg);}
+  .issue-nav span{min-width:56px;text-align:center;font-variant-numeric:tabular-nums;}
 
   .issues-scroll{flex:1 1 auto;overflow-y:auto;padding:14px 20px;background:var(--bg);min-height:0;}
   #issuesList{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;align-content:start;}
@@ -107,13 +112,18 @@
   .clean-state{grid-column:1 / -1;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:28px;text-align:center;color:var(--muted);font-size:14px;}
   .clean-state .big{font-size:15px;color:var(--accent-text);font-weight:500;margin-bottom:4px;}
 
-  .issue{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;cursor:pointer;transition:border-color .12s;}
+  .issue{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;cursor:pointer;transition:border-color .12s, box-shadow .12s;}
   .issue:hover{border-color:var(--border-strong);}
-  .issue-top{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .issue.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+  .issue-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+  .issue-num{flex-shrink:0;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+  .issue-num.critical{background:var(--danger);}
+  .issue-num.warning{background:var(--warn);}
   .sev{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;padding:2px 9px;border-radius:20px;flex-shrink:0;}
   .sev.critical{background:var(--danger-bg);color:var(--danger-text);}
   .sev.warning{background:var(--warn-bg);color:var(--warn-text);}
   .issue-title{font-size:13.5px;font-weight:500;}
+  .issue-context{font-size:11.5px;color:var(--accent-text);background:var(--accent-bg);display:inline-block;padding:2px 8px;border-radius:10px;margin-bottom:7px;}
   .issue-body{font-size:13px;color:var(--muted);line-height:1.5;padding-left:0;}
   .issue-body code{background:var(--bg);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:12px;color:var(--ink);}
   .issue-loc{font-size:11.5px;color:var(--hint);margin-top:6px;}
@@ -245,6 +255,11 @@
             <button class="filter-btn" data-filter="critical">Critical</button>
             <button class="filter-btn" data-filter="warning">Warnings</button>
           </div>
+          <div class="issue-nav">
+            <button id="prevIssueBtn" title="Previous issue">&larr;</button>
+            <span id="issueNavLabel">—</span>
+            <button id="nextIssueBtn" title="Next issue">&rarr;</button>
+          </div>
         </div>
       </div>
       <div class="issues-scroll" id="issuesScroll">
@@ -356,6 +371,15 @@ document.getElementById('runBtn').addEventListener('click', ()=>{
    ========================================================================= */
 const StructuralAnalyzer = (function(){
   const TEXT_HOLDERS = new Set(['p','li','h1','h2','h3','h4','h5','b','i','a','span','td','th']);
+  const TAG_LABELS = {
+    p:'paragraph', li:'list item', b:'bold text', i:'italic text', a:'link', span:'text',
+    td:'table cell', th:'table header', h1:'heading', h2:'heading', h3:'heading', h4:'heading',
+    h5:'heading', div:'section', ul:'list', ol:'list', img:'image', table:'table', tr:'table row',
+  };
+  function label(tag){ return TAG_LABELS[tag] || `<${tag}>`; }
+  function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+  function esc(s){ const d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
+  function truncate(s, n){ return s.length>n ? s.slice(0,n)+'…' : s; }
 
   function directText(el){
     let t = '';
@@ -363,23 +387,34 @@ const StructuralAnalyzer = (function(){
     return t.trim();
   }
 
+  /* Flatten DOM in document order, tracking the nearest preceding heading for readable context. */
   function flatten(doc){
     const items = [];
-    function walk(el, path, indexPath){
+    let currentHeading = null;
+    function selfIndex(el){
+      // The root <html> element has no parent/siblings — give it an empty path rather than -1,
+      // which would otherwise shift every descendant's computed path by one.
+      if(!el.parentElement) return null;
+      return Array.from(el.parentElement.children).indexOf(el);
+    }
+    function walk(el, indexPath){
       if(el.nodeType!==1) return;
-      const siblings = el.parentElement ? Array.from(el.parentElement.children).filter(c=>c.tagName===el.tagName) : [];
-      const idx = siblings.indexOf(el);
-      const newPath = path + ' > ' + el.tagName.toLowerCase() + '[' + idx + ']';
-      const newIndexPath = indexPath.concat(Array.from(el.parentElement ? el.parentElement.children : []).indexOf(el));
+      const myIdx = selfIndex(el);
+      const newIndexPath = myIdx===null ? [] : indexPath.concat(myIdx);
       const attrs = {};
       for(const a of el.attributes) attrs[a.name] = a.value;
       items.push({
-        path: newPath, indexPath: newIndexPath, tag: el.tagName.toLowerCase(), attrs,
+        indexPath: newIndexPath, tag: el.tagName.toLowerCase(), attrs,
         directText: directText(el), isTextHolder: TEXT_HOLDERS.has(el.tagName.toLowerCase()),
+        headingContext: currentHeading,
       });
-      for(const child of el.children) walk(child, newPath, newIndexPath);
+      if(/^h[1-4]$/.test(el.tagName.toLowerCase())){
+        const t = el.textContent.trim();
+        if(t) currentHeading = truncate(t, 60);
+      }
+      for(const child of el.children) walk(child, newIndexPath);
     }
-    walk(doc.documentElement, '', []);
+    walk(doc.documentElement, []);
     return items;
   }
 
@@ -419,6 +454,16 @@ const StructuralAnalyzer = (function(){
     return diffs;
   }
 
+  function comparePaths(a, b){
+    const len = Math.min(a.length, b.length);
+    for(let i=0;i<len;i++) if(a[i]!==b[i]) return a[i]-b[i];
+    return a.length - b.length;
+  }
+
+  function contextLine(headingContext){
+    return headingContext ? `In section &ldquo;${esc(headingContext)}&rdquo;` : 'Near the top of the page';
+  }
+
   function analyze(htmlA, htmlB){
     const parser = new DOMParser();
     const docA = parser.parseFromString(htmlA, 'text/html');
@@ -435,28 +480,32 @@ const StructuralAnalyzer = (function(){
           const na = treeA[blk.aStart+k], nb = treeB[blk.bStart+k];
           const ad = compareAttrs(na.attrs, nb.attrs);
           if(Object.keys(ad).length){
-            const changeList = Object.entries(ad).map(([key,v])=>`<code>${key}</code>: "${v.a}" changed to "${v.b}"`).join('; ');
+            const changeList = Object.entries(ad).map(([key,v])=>`<code>${esc(key)}</code>: "${esc(v.a)}" &rarr; "${esc(v.b)}"`).join('<br>');
             issues.push({
-              severity:'warning', category:'Attribute changed',
-              title: `<code>&lt;${na.tag}&gt;</code> attribute differs`,
-              body: changeList, indexPath: na.indexPath,
+              severity:'warning',
+              title: `${cap(label(na.tag))} attributes don&rsquo;t match`,
+              body: changeList,
+              headingContext: na.headingContext,
+              locations: [{side:'A', indexPath:na.indexPath},{side:'B', indexPath:nb.indexPath}],
             });
           }
           if(na.isTextHolder){
             const hasA = na.directText.length>0, hasB = nb.directText.length>0;
             if(hasA && !hasB){
               issues.push({
-                severity:'critical', category:'Content dropped',
-                title: `<code>&lt;${na.tag}&gt;</code> is empty in the locale version`,
-                body: `Source has text here, but the same position in the locale page is blank.`,
-                indexPath: na.indexPath, quotePreview: na.directText.slice(0,70),
+                severity:'critical',
+                title: `Missing translation in a ${label(na.tag)}`,
+                body: `Source text: &ldquo;${esc(truncate(na.directText,90))}&rdquo; &mdash; this is blank in the Locale version.`,
+                headingContext: na.headingContext,
+                locations: [{side:'A', indexPath:na.indexPath},{side:'B', indexPath:nb.indexPath}],
               });
             } else if(!hasA && hasB){
               issues.push({
-                severity:'warning', category:'Content added',
-                title: `<code>&lt;${nb.tag}&gt;</code> has text only in the locale version`,
-                body: `The source page has nothing here, but the locale page does.`,
-                indexPath: nb.indexPath,
+                severity:'warning',
+                title: `Extra content in a Locale ${label(nb.tag)}`,
+                body: `Locale text: &ldquo;${esc(truncate(nb.directText,90))}&rdquo; &mdash; the Source page has nothing here.`,
+                headingContext: nb.headingContext,
+                locations: [{side:'A', indexPath:na.indexPath},{side:'B', indexPath:nb.indexPath}],
               });
             }
           }
@@ -467,30 +516,63 @@ const StructuralAnalyzer = (function(){
         for(const n of nodes){
           if(!n.isTextHolder && !['div','ul','img','table','tr'].includes(n.tag)) continue;
           issues.push({
-            severity:'critical',
-            category: side==='A' ? 'Section missing' : 'Section added',
+            severity: side==='A' ? 'critical' : 'warning',
             title: side==='A'
-              ? `<code>&lt;${n.tag}&gt;</code> section exists in Source but not in Locale`
-              : `<code>&lt;${n.tag}&gt;</code> section exists in Locale but not in Source`,
-            body: n.directText ? `Content: "${n.directText.slice(0,90)}"` : 'No direct text — check nested content.',
-            indexPath: n.indexPath, side,
+              ? `Missing ${label(n.tag)} in Locale`
+              : `Extra ${label(n.tag)} added in Locale`,
+            body: n.directText ? `Content: &ldquo;${esc(truncate(n.directText,90))}&rdquo;` : 'No direct text — check nested content.',
+            headingContext: n.headingContext,
+            locations: [{side, indexPath:n.indexPath}],
           });
         }
       }
     }
 
-    const linksA = new Set(Array.from(docA.querySelectorAll('a[href],img[src]')).map(el=>el.getAttribute('href')||el.getAttribute('src')));
-    const linksB = new Set(Array.from(docB.querySelectorAll('a[href],img[src]')).map(el=>el.getAttribute('href')||el.getAttribute('src')));
-    for(const l of linksA) if(!linksB.has(l)) issues.push({ severity:'critical', category:'Link missing', title:'Link or image only in Source', body:`<code>${l}</code> does not appear anywhere in the locale page.` });
-    for(const l of linksB) if(!linksA.has(l)) issues.push({ severity:'warning', category:'Link added', title:'Link or image only in Locale', body:`<code>${l}</code> does not appear in the source page.` });
+    /* Links / images — locate the specific element so these are numbered & jumpable too. */
+    const linkNodesA = treeA.filter(n=>n.tag==='a'||n.tag==='img').map(n=>({url:n.attrs.href||n.attrs.src, node:n}));
+    const linkNodesB = treeB.filter(n=>n.tag==='a'||n.tag==='img').map(n=>({url:n.attrs.href||n.attrs.src, node:n}));
+    const linksA = new Set(linkNodesA.map(x=>x.url));
+    const linksB = new Set(linkNodesB.map(x=>x.url));
+    for(const l of linksA){
+      if(linksB.has(l)) continue;
+      const match = linkNodesA.find(x=>x.url===l);
+      issues.push({
+        severity:'critical', title:'Link or image missing in Locale',
+        body:`<code>${esc(l)}</code> does not appear anywhere in the Locale page.`,
+        headingContext: match ? match.node.headingContext : null,
+        locations: match ? [{side:'A', indexPath:match.node.indexPath}] : [],
+      });
+    }
+    for(const l of linksB){
+      if(linksA.has(l)) continue;
+      const match = linkNodesB.find(x=>x.url===l);
+      issues.push({
+        severity:'warning', title:'Link or image only in Locale',
+        body:`<code>${esc(l)}</code> does not appear in the Source page.`,
+        headingContext: match ? match.node.headingContext : null,
+        locations: match ? [{side:'B', indexPath:match.node.indexPath}] : [],
+      });
+    }
 
+    /* Page-level checks with no single on-page spot — kept unnumbered, shown separately. */
     const idsA = Array.from(docA.querySelectorAll('[id]')).map(el=>el.id);
     const idsB = Array.from(docB.querySelectorAll('[id]')).map(el=>el.id);
     if(JSON.stringify(idsA) !== JSON.stringify(idsB)){
-      issues.push({ severity:'warning', category:'IDs differ', title:'Element IDs do not match between pages', body:`Source: <code>${idsA.join(', ')||'none'}</code><br>Locale: <code>${idsB.join(', ')||'none'}</code>` });
+      issues.push({
+        severity:'warning', title:'Element IDs don&rsquo;t match between pages',
+        body:`Source: <code>${esc(idsA.join(', ')||'none')}</code><br>Locale: <code>${esc(idsB.join(', ')||'none')}</code>`,
+        locations: [],
+      });
     }
 
-    return issues;
+    /* Number issues in top-to-bottom document order; page-level issues stay unnumbered. */
+    const locatable = issues.filter(i=>i.locations && i.locations.length);
+    const general = issues.filter(i=>!i.locations || !i.locations.length);
+    locatable.sort((x,y)=>comparePaths(x.locations[0].indexPath, y.locations[0].indexPath));
+    locatable.forEach((iss,idx)=>{ iss.number = idx+1; iss.locationLabel = contextLine(iss.headingContext); });
+    general.forEach(iss=>{ iss.number = null; iss.locationLabel = null; });
+
+    return locatable.concat(general);
   }
 
   return { analyze };
@@ -590,7 +672,11 @@ function refreshComparison(){
   }
   document.getElementById('iframeA').srcdoc = Loader.A.text;
   document.getElementById('iframeB').srcdoc = Loader.B.text;
-  ScrollSync.init(document.getElementById('iframeA'), document.getElementById('iframeB'));
+  const iframeA = document.getElementById('iframeA'), iframeB = document.getElementById('iframeB');
+  ScrollSync.init(iframeA, iframeB, ()=>{
+    injectMarkers(iframeA, 'A', currentIssues);
+    injectMarkers(iframeB, 'B', currentIssues);
+  });
   renderStatusPills(currentIssues);
   renderIssues(currentIssues);
   if(!panesHeightUserSet){
@@ -625,7 +711,7 @@ const ScrollSync = (function(){
     targetWin.scrollTo(0, pct * Math.max(tMax,0));
     requestAnimationFrame(()=>{ syncing = false; });
   }
-  function init(iframeA, iframeB){
+  function init(iframeA, iframeB, onBothReady){
     let ready = 0;
     function attach(){
       ready++;
@@ -633,9 +719,10 @@ const ScrollSync = (function(){
       const winA = iframeA.contentWindow, winB = iframeB.contentWindow;
       winA.addEventListener('scroll', ()=>pctScroll(winA, winB));
       winB.addEventListener('scroll', ()=>pctScroll(winB, winA));
+      if(onBothReady) onBothReady();
     }
-    iframeA.onload = attach;
-    iframeB.onload = attach;
+    iframeA.addEventListener('load', attach, {once:true});
+    iframeB.addEventListener('load', attach, {once:true});
   }
   return { init };
 })();
@@ -713,8 +800,12 @@ let panesHeightUserSet = false;
 
 function renderIssues(issues){
   const list = document.getElementById('issuesList');
+  const locatableTotal = issues.filter(i=>i.number).length;
   document.getElementById('issuesTitle').textContent = issues.length ? `Issues (${issues.length})` : 'Issues';
   const filtered = activeFilter==='all' ? issues : issues.filter(i=>i.severity===activeFilter);
+  filteredNumbered = filtered.filter(i=>i.number); // used by Prev/Next nav
+  activeIssueNumber = null;
+  updateNavLabel();
 
   if(issues.length===0){
     list.innerHTML = `<div class="clean-state"><div class="big">No structural issues found</div>Tags, attributes, links, ids, and content coverage all match between Source and Locale.</div>`;
@@ -725,33 +816,34 @@ function renderIssues(issues){
     return;
   }
 
-  list.innerHTML = filtered.map((iss, idx)=>`
-    <div class="issue" data-idx="${issues.indexOf(iss)}">
+  list.innerHTML = filtered.map(iss=>`
+    <div class="issue" data-num="${iss.number ?? ''}">
       <div class="issue-top">
+        <span class="issue-num ${iss.severity}">${iss.number ?? '•'}</span>
         <span class="sev ${iss.severity}">${iss.severity}</span>
         <span class="issue-title">${iss.title}</span>
       </div>
+      ${iss.locationLabel ? `<div class="issue-context">${iss.locationLabel}</div>` : ''}
       <div class="issue-body">${iss.body}</div>
-      ${iss.indexPath ? `<div class="issue-loc">Click to locate on the page &rarr;</div>` : ''}
+      ${iss.number ? `<div class="issue-loc">Jump to this spot &rarr;</div>` : ''}
     </div>
   `).join('');
 
   list.querySelectorAll('.issue').forEach(card=>{
     card.addEventListener('click', ()=>{
-      const iss = currentIssues[+card.dataset.idx];
-      if(iss.indexPath) locateOnPage(iss.indexPath, iss.side);
+      const num = card.dataset.num;
+      if(num) jumpToIssueNumber(+num);
     });
   });
 }
 
-function locateOnPage(indexPath, side){
-  const targets = side==='B' ? [document.getElementById('iframeB')] :
-                   side==='A' ? [document.getElementById('iframeA')] :
-                   [document.getElementById('iframeA'), document.getElementById('iframeB')];
-  for(const iframe of targets){
+/* ---- Locate an issue's element(s) in the live preview, and mark it as the active issue ---- */
+function locateIssueLocations(locations){
+  for(const loc of locations){
+    const iframe = document.getElementById(loc.side==='A' ? 'iframeA' : 'iframeB');
     try{
       let node = iframe.contentDocument.documentElement;
-      for(const idx of indexPath){
+      for(const idx of loc.indexPath){
         if(!node || !node.children[idx]) { node = null; break; }
         node = node.children[idx];
       }
@@ -762,6 +854,77 @@ function locateOnPage(indexPath, side){
       }
     }catch(e){}
   }
+}
+
+/* ---- Prev/Next navigation across the currently filtered, numbered issues ---- */
+let filteredNumbered = [];
+let activeIssueNumber = null;
+
+function updateNavLabel(){
+  const label = document.getElementById('issueNavLabel');
+  const total = filteredNumbered.length;
+  if(total===0){ label.textContent = '—'; return; }
+  const pos = activeIssueNumber ? filteredNumbered.findIndex(i=>i.number===activeIssueNumber)+1 : 0;
+  label.textContent = pos>0 ? `${pos} of ${total}` : `${total} found`;
+}
+
+function setActiveCard(number){
+  document.querySelectorAll('.issue').forEach(c=> c.classList.toggle('active', +c.dataset.num===number));
+  const activeCard = document.querySelector(`.issue[data-num="${number}"]`);
+  if(activeCard) activeCard.scrollIntoView({block:'nearest', behavior:'smooth'});
+}
+
+function jumpToIssueNumber(number){
+  const iss = currentIssues.find(i=>i.number===number);
+  if(!iss) return;
+  activeIssueNumber = number;
+  setActiveCard(number);
+  updateNavLabel();
+  locateIssueLocations(iss.locations);
+}
+window.jumpToIssueNumber = jumpToIssueNumber; // reachable from injected iframe markers via parent.jumpToIssueNumber
+
+document.getElementById('prevIssueBtn').addEventListener('click', ()=>{
+  if(!filteredNumbered.length) return;
+  const curPos = activeIssueNumber ? filteredNumbered.findIndex(i=>i.number===activeIssueNumber) : -1;
+  const nextPos = curPos<=0 ? filteredNumbered.length-1 : curPos-1;
+  jumpToIssueNumber(filteredNumbered[nextPos].number);
+});
+document.getElementById('nextIssueBtn').addEventListener('click', ()=>{
+  if(!filteredNumbered.length) return;
+  const curPos = activeIssueNumber ? filteredNumbered.findIndex(i=>i.number===activeIssueNumber) : -1;
+  const nextPos = curPos>=filteredNumbered.length-1 ? 0 : curPos+1;
+  jumpToIssueNumber(filteredNumbered[nextPos].number);
+});
+
+/* ---- Inject numbered markers directly into the rendered preview ---- */
+function injectMarkers(iframe, side, issues){
+  try{
+    const doc = iframe.contentDocument;
+    if(!doc || !doc.documentElement) return;
+    for(const iss of issues){
+      if(!iss.number) continue;
+      const loc = iss.locations.find(l=>l.side===side);
+      if(!loc) continue;
+      let node = doc.documentElement;
+      for(const idx of loc.indexPath){
+        if(!node || !node.children[idx]) { node = null; break; }
+        node = node.children[idx];
+      }
+      if(!node) continue;
+      const marker = doc.createElement('span');
+      marker.textContent = iss.number;
+      marker.title = iss.title.replace(/<[^>]+>/g,'');
+      const bg = iss.severity==='critical' ? '#A32D2D' : '#854F0B';
+      marker.setAttribute('style', `display:inline-flex;align-items:center;justify-content:center;` +
+        `width:17px;height:17px;min-width:17px;border-radius:50%;background:${bg};color:#fff;` +
+        `font:700 10.5px/1 Arial,sans-serif;margin-right:5px;cursor:pointer;vertical-align:middle;` +
+        `box-shadow:0 0 0 2px #fff;`);
+      marker.addEventListener('click', (e)=>{ e.stopPropagation(); parent.jumpToIssueNumber(iss.number); });
+      if(node.firstChild) node.insertBefore(marker, node.firstChild);
+      else node.appendChild(marker);
+    }
+  }catch(e){ /* cross-doc access can fail silently if content is unusual — non-fatal */ }
 }
 </script>
 </body>
