@@ -684,6 +684,12 @@ const PDFAnalyzer = (function(){
   function esc(s){ const d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
   function truncate(s, n){ return s.length>n ? s.slice(0,n)+'…' : s; }
   function normText(s){ return s.replace(/\s+/g,' ').trim(); }
+  /* Strips a trailing page marker — either an arabic page number ("142") or a lowercase
+     roman numeral ("xiv"), as used in front-matter/ToC page numbering. Used to recognize
+     recurring headers/footers as boilerplate even though the number changes every page. */
+  function stripTrailingPageMarker(s){
+    return s.replace(/\s*(?:\d[\d,]*|[ivxlcdm]{1,7})\s*$/i, '').trim();
+  }
 
   async function loadDoc(data){
     const task = pdfjsLib.getDocument({ data });
@@ -761,11 +767,11 @@ const PDFAnalyzer = (function(){
   function markBoilerplate(paragraphs, totalPages){
     const freq = new Map();
     for(const p of paragraphs){
-      const key = p.text.toLowerCase();
+      const key = stripTrailingPageMarker(p.text.toLowerCase());
       freq.set(key, (freq.get(key)||0)+1);
     }
-    const threshold = Math.max(3, Math.ceil(totalPages*0.12));
-    for(const p of paragraphs) p.isBoilerplate = (freq.get(p.text.toLowerCase())||0) >= threshold;
+    const threshold = Math.max(3, Math.ceil(totalPages*0.06));
+    for(const p of paragraphs) p.isBoilerplate = (freq.get(stripTrailingPageMarker(p.text.toLowerCase()))||0) >= threshold;
   }
 
   async function extractDocument(data, onProgress){
@@ -830,6 +836,13 @@ const PDFAnalyzer = (function(){
     const a = stripTrailingNumber(textA), b = stripTrailingNumber(textB);
     return a.length>0 && a === b;
   }
+  /* Word-overlap similarity unfairly penalizes short lines — "Ping 252" vs "Ping 254" is only
+     1/3 by raw Jaccard (loses 1 of 2 tokens) despite being an obvious match. A page-number-only
+     change is always treated as a perfect match so short ToC entries pair as reliably as long ones. */
+  function matchScore(a, b){
+    if(isPageNumberOnlyChange(a,b)) return 1;
+    return wordSimilarity(a,b);
+  }
   function makeChangedIssue(pa, pb){
     if(isPageNumberOnlyChange(pa.text, pb.text)){
       return {
@@ -869,26 +882,29 @@ const PDFAnalyzer = (function(){
           let bestJ = -1, bestSim = 0.35; // similarity floor
           for(let bj=0; bj<bItems.length; bj++){
             if(usedB.has(bj)) continue;
-            const sim = wordSimilarity(aItems[ai].text, bItems[bj].text);
+            const sim = matchScore(aItems[ai].text, bItems[bj].text);
             if(sim > bestSim){ bestSim = sim; bestJ = bj; }
           }
           if(bestJ>=0){ usedB.add(bestJ); pairs.push([aItems[ai], bItems[bestJ]]); }
         }
-        // Only use this pairing if it accounts for most of the shorter run — otherwise
-        // these two blocks probably aren't actually related, so fall through to plain diff.
-        if(pairs.length >= Math.min(aItems.length, bItems.length) * 0.6){
+        // Use every individually-good match we found, regardless of what fraction of the
+        // block it covers — a whole chapter can get renumbered around a few clean matches,
+        // and gating on the block's overall match rate was throwing away perfectly good
+        // line-level pairs (e.g. "Ping 254" -> "Ping 252") just because their neighbors
+        // didn't also match well.
+        if(pairs.length > 0){
           for(const [pa,pb] of pairs) issues.push(makeChangedIssue(pa,pb));
           const pairedA = new Set(pairs.map(([pa])=>pa));
           const pairedB = new Set(pairs.map(([,pb])=>pb));
           for(const pa of aItems) if(!pairedA.has(pa)) issues.push({
             severity:'critical', title:'Paragraph removed in Locale',
             body:`Page ${pa.pageNum} (Source): &ldquo;${esc(truncate(pa.text,140))}&rdquo;`,
-            locations: [loc('A',pa)],
+            locations: [loc('A',pa)], _raw:pa,
           });
           for(const pb of bItems) if(!pairedB.has(pb)) issues.push({
             severity:'warning', title:'Paragraph added in Locale',
             body:`Page ${pb.pageNum} (Locale): &ldquo;${esc(truncate(pb.text,140))}&rdquo;`,
-            locations: [loc('B',pb)],
+            locations: [loc('B',pb)], _raw:pb,
           });
           i += 2; continue;
         }
@@ -899,7 +915,7 @@ const PDFAnalyzer = (function(){
           issues.push({
             severity:'critical', title:'Paragraph removed in Locale',
             body:`Page ${p.pageNum} (Source): &ldquo;${esc(truncate(p.text,140))}&rdquo;`,
-            locations: [loc('A',p)],
+            locations: [loc('A',p)], _raw:p,
           });
         }
       } else if(b.type==='insert'){
@@ -908,22 +924,52 @@ const PDFAnalyzer = (function(){
           issues.push({
             severity:'warning', title:'Paragraph added in Locale',
             body:`Page ${p.pageNum} (Locale): &ldquo;${esc(truncate(p.text,140))}&rdquo;`,
-            locations: [loc('B',p)],
+            locations: [loc('B',p)], _raw:p,
           });
         }
       }
       i++;
     }
-    return issues;
+    return rescuePageNumberMatches(issues);
+  }
+
+  /* LCS alignment is a global optimum and can occasionally split what's really one clean
+     local correspondence across a block boundary (a coincidental exact match a few lines
+     away "steals" the alignment). That leaves genuinely identical-but-for-the-page-number
+     lines stranded as separate remove/add entries even though local block-pairing normally
+     catches them. This second pass looks across ALL remaining removed/added paragraphs —
+     not just ones in the same block — for that specific, high-confidence pattern only. */
+  function rescuePageNumberMatches(issues){
+    const removed = issues.filter(i=>i.title==='Paragraph removed in Locale' && i._raw);
+    const added = issues.filter(i=>i.title==='Paragraph added in Locale' && i._raw);
+    if(!removed.length || !added.length) return issues;
+    const usedAdded = new Set();
+    const rescuedPairs = [];
+    for(const r of removed){
+      for(let j=0;j<added.length;j++){
+        if(usedAdded.has(j)) continue;
+        if(isPageNumberOnlyChange(r._raw.text, added[j]._raw.text)){
+          usedAdded.add(j);
+          rescuedPairs.push([r, added[j]]);
+          break;
+        }
+      }
+    }
+    if(!rescuedPairs.length) return issues;
+    const consumed = new Set();
+    for(const [r,a] of rescuedPairs){ consumed.add(r); consumed.add(a); }
+    const kept = issues.filter(i=>!consumed.has(i));
+    for(const [r,a] of rescuedPairs) kept.push(makeChangedIssue(r._raw, a._raw));
+    return kept;
   }
 
   /* Boilerplate is compared as a set of unique recurring strings per document,
      not per-instance — otherwise one changed footer would produce 300 near-duplicate issues. */
   function diffBoilerplate(paragraphs, side){
-    const seen = new Map(); // normalized text -> {text, firstPage, count}
+    const seen = new Map(); // stripped text -> {text, firstPage, count}
     for(const p of paragraphs){
-      const key = p.text.toLowerCase();
-      if(!seen.has(key)) seen.set(key, { text:p.text, firstPage:p.pageNum, count:0, sample:p });
+      const key = stripTrailingPageMarker(p.text.toLowerCase());
+      if(!seen.has(key)) seen.set(key, { text:stripTrailingPageMarker(p.text), firstPage:p.pageNum, count:0, sample:p });
       seen.get(key).count++;
     }
     return seen;
@@ -1264,12 +1310,17 @@ function createPDFViewer(containerEl, side, extraction, getIssues){
     const scale = parseFloat(wrap.dataset.scale);
     pdfDoc.getPage(idx+1).then(page=>{
       const viewport = page.getViewport({ scale });
+      // Render at the screen's actual device pixel ratio (Retina/HiDPI), then scale the
+      // canvas back down via CSS — otherwise every page renders soft/blurry compared to
+      // the browser's own (vector) PDF viewer.
+      const outputScale = window.devicePixelRatio || 1;
       const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
       wrap.insertBefore(canvas, wrap.firstChild);
       const ctx = canvas.getContext('2d');
-      page.render({ canvasContext: ctx, viewport }).promise.then(()=>{
+      const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+      page.render({ canvasContext: ctx, viewport, transform }).promise.then(()=>{
         placeMarkers(wrap, idx+1, scale, side, getIssues());
       });
     });
