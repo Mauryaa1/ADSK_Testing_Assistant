@@ -80,7 +80,10 @@
   .back-btn:hover{border-color:var(--border-strong);}
 
   #compareBody{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
-  .panes{flex:0 0 auto;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);min-height:140px;}
+  .panes{position:relative;flex:0 0 auto;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);min-height:140px;}
+  #connectorSvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;overflow:hidden;}
+  #connectorSvg path{fill:none;stroke:var(--accent);stroke-width:1.4;opacity:0.55;}
+  #connectorSvg path.active-connector{stroke:#E24B4A;opacity:0.9;stroke-width:2.2;}
   .pane{display:flex;flex-direction:column;background:var(--panel);min-height:0;}
   .pane-head{flex:0 0 auto;padding:8px 16px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}
   .pane-head .dot{width:8px;height:8px;border-radius:50%;}
@@ -255,6 +258,7 @@
         <div class="pane-head source"><span class="dot"></span>Source</div>
         <div class="pane-body" id="paneBodyA"></div>
       </div>
+      <svg id="connectorSvg"></svg>
       <div class="pane">
         <div class="pane-head locale"><span class="dot"></span>Locale</div>
         <div class="pane-body" id="paneBodyB"></div>
@@ -1192,6 +1196,7 @@ function renderHTMLPanes(htmlA, htmlB){
   const bodyA = document.getElementById('paneBodyA'), bodyB = document.getElementById('paneBodyB');
   bodyA.innerHTML = '<iframe id="iframeA"></iframe>';
   bodyB.innerHTML = '<iframe id="iframeB"></iframe>';
+  if(typeof ConnectorLines !== 'undefined') ConnectorLines.reset();
   const iframeA = document.getElementById('iframeA'), iframeB = document.getElementById('iframeB');
   iframeA.srcdoc = htmlA;
   iframeB.srcdoc = htmlB;
@@ -1206,10 +1211,63 @@ let pdfViewers = { A:null, B:null };
 function renderPDFPanes(viewerData){
   const bodyA = document.getElementById('paneBodyA'), bodyB = document.getElementById('paneBodyB');
   bodyA.innerHTML = ''; bodyB.innerHTML = '';
+  ConnectorLines.reset();
   pdfViewers.A = createPDFViewer(bodyA, 'A', viewerData.A, ()=>currentIssues);
   pdfViewers.B = createPDFViewer(bodyB, 'B', viewerData.B, ()=>currentIssues);
   PDFScrollSync.init(pdfViewers.A.scrollEl, pdfViewers.B.scrollEl);
+  pdfViewers.A.scrollEl.addEventListener('scroll', ()=>ConnectorLines.scheduleUpdate());
+  pdfViewers.B.scrollEl.addEventListener('scroll', ()=>ConnectorLines.scheduleUpdate());
 }
+
+/* ---- Connecting lines between matched Source/Locale content, like Adobe's compare view.
+   Only drawn for "changed" issues that have a location on both sides — plain removed/added
+   issues only exist on one side and have nothing to connect to. Lines only appear when BOTH
+   endpoints are actually scrolled into view (not merely rendered), so nothing points off into
+   empty space when the two documents' pages have drifted apart. ---- */
+const ConnectorLines = (function(){
+  let registry = { A: new Map(), B: new Map() };
+  let rafPending = false;
+
+  function reset(){
+    registry = { A: new Map(), B: new Map() };
+    const svg = document.getElementById('connectorSvg');
+    if(svg) svg.innerHTML = '';
+  }
+  function register(side, number, el){ registry[side].set(number, el); }
+  function scheduleUpdate(){
+    if(rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(()=>{ rafPending = false; update(); });
+  }
+  function update(){
+    const svg = document.getElementById('connectorSvg');
+    const panesEl = document.getElementById('panesEl');
+    if(!svg) return;
+    if(appMode!=='pdf' || !pdfViewers.A || !pdfViewers.B){ svg.innerHTML=''; return; }
+    const panesRect = panesEl.getBoundingClientRect();
+    const viewA = pdfViewers.A.scrollEl.getBoundingClientRect();
+    const viewB = pdfViewers.B.scrollEl.getBoundingClientRect();
+
+    let html = '';
+    for(const [num, elA] of registry.A){
+      const elB = registry.B.get(num);
+      if(!elB || !elA.isConnected || !elB.isConnected) continue;
+      const rA = elA.getBoundingClientRect();
+      const rB = elB.getBoundingClientRect();
+      const aVisible = rA.bottom > viewA.top && rA.top < viewA.bottom;
+      const bVisible = rB.bottom > viewB.top && rB.top < viewB.bottom;
+      if(!aVisible || !bVisible) continue;
+      const x1 = rA.right - panesRect.left, y1 = rA.top + rA.height/2 - panesRect.top;
+      const x2 = rB.left - panesRect.left, y2 = rB.top + rB.height/2 - panesRect.top;
+      const midX = (x1+x2)/2;
+      const cls = num===activeIssueNumber ? 'active-connector' : '';
+      html += `<path class="${cls}" d="M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${midX.toFixed(1)} ${y1.toFixed(1)}, ${midX.toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}"/>`;
+    }
+    svg.innerHTML = html;
+  }
+  window.addEventListener('resize', ()=>scheduleUpdate());
+  return { reset, register, scheduleUpdate };
+})();
 
 /* ---- Synced scrolling, toggleable ---- */
 let syncScrollEnabled = true;
@@ -1349,7 +1407,9 @@ function createPDFViewer(containerEl, side, extraction, getIssues){
       marker.style.left = leftPx + 'px';
       marker.addEventListener('click', (e)=>{ e.stopPropagation(); jumpToIssueNumber(iss.number); });
       layer.appendChild(marker);
+      ConnectorLines.register(side, iss.number, marker);
     }
+    ConnectorLines.scheduleUpdate();
   }
 
   const observer = new IntersectionObserver((entries)=>{
@@ -1445,6 +1505,7 @@ let panesHeightUserSet = false;
     let next = startHeight + delta;
     next = Math.max(minPanes, Math.min(next, totalH - handleH - minIssues));
     panesEl.style.height = next + 'px';
+    if(typeof ConnectorLines !== 'undefined') ConnectorLines.scheduleUpdate();
     e.preventDefault();
   }
   function dragEnd(){
@@ -1557,6 +1618,14 @@ function jumpToIssueNumber(number){
   setActiveCard(number);
   updateNavLabel();
   locateIssueLocations(iss.locations);
+  if(typeof ConnectorLines !== 'undefined') ConnectorLines.scheduleUpdate();
+  if(appMode==='pdf'){
+    // Smooth-scroll fires 'scroll' continuously, which keeps lines updated, but the
+    // animation takes a moment — a few follow-up redraws keep the active line tracking
+    // smoothly instead of jumping once at the very end.
+    let ticks = 0;
+    const iv = setInterval(()=>{ ConnectorLines.scheduleUpdate(); if(++ticks>15) clearInterval(iv); }, 40);
+  }
 }
 window.jumpToIssueNumber = jumpToIssueNumber; // reachable from injected iframe markers via parent.jumpToIssueNumber
 
