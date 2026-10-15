@@ -208,5 +208,11 @@
     "name": "ReCap",
     "languages": ["CHS", "CHT", "CSY", "DEU", "ESP", "FRA", "ITA", "JPN", "KOR", "PLK", "PTB"],
     "usesYearBranch": false
+  },
+  {
+    "code": "FUSION360",
+    "name": "Autodesk Fusion 360",
+    "languages": ["CHS", "DEU", "ESP", "FRA", "ITA", "JPN", "KOR", "PLK", "PTB"],
+    "usesYearBranch": false
   }
 ]
