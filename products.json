@@ -210,7 +210,7 @@
     "usesYearBranch": false
   },
   {
-    "code": "FUSION360",
+    "code": "fusion360",
     "name": "Autodesk Fusion 360",
     "languages": ["CHS", "DEU", "ESP", "FRA", "ITA", "JPN", "KOR", "PLK", "PTB"],
     "usesYearBranch": false
